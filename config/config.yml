@@ -1,0 +1,23 @@
+app:
+  name: 'chat-bot-backend'
+  version: '1.0.0'
+
+http:
+  host: 'localhost'
+  port: '8081'
+  read_timeout: 5
+  write_timeout: 5
+  shutdown_timeout: 3
+
+mysql:
+  host: 'localhost'
+  port: 3306
+  user: 'user'
+  password: 'password'
+  name: 'appointment'
+  time_zone: '6'
+  location: 'Asia/Almaty'
+
+logger:
+  log_level: 'debug'
+  rollbar_env: 'chat-bot-backend'
