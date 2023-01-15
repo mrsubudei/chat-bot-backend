@@ -4,19 +4,15 @@ app:
 
 http:
   host: 'localhost'
-  port: '8081'
+  port: '8087'
   read_timeout: 5
   write_timeout: 5
   shutdown_timeout: 3
 
-mysql:
-  host: 'localhost'
-  port: 3306
-  user: 'user'
-  password: 'password'
-  name: 'appointment'
-  time_zone: '6'
-  location: 'Asia/Almaty'
+postgres:
+  pool_max: 2
+  url: "postgres://user:pass@postgres:5432/postgres"
+
 
 logger:
   log_level: 'debug'

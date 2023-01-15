@@ -9,16 +9,16 @@ import (
 type (
 	// Config -.
 	Config struct {
-		App    `yaml:"app"`
-		HTTP   `yaml:"http"`
-		MySql  `yaml:"mysql"`
-		Logger `yaml:"logger"`
+		App      `yaml:"app"`
+		HTTP     `yaml:"http"`
+		Postgres `yaml:"postgres"`
+		Logger   `yaml:"logger"`
 	}
 
 	// App -.
 	App struct {
-		Name    string `yaml:"name"`
-		Version string `yaml:"version"`
+		Name    string `yaml:"name" env:"APP_NAME"`
+		Version string `yaml:"version" env:"APP_VERSION"`
 	}
 
 	// HTTP -.
@@ -31,19 +31,14 @@ type (
 	}
 
 	// MySql -.
-	MySql struct {
-		Host     string `yaml:"host"`
-		Port     string `yaml:"port"`
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Name     string `yaml:"name"`
-		TimeZone string `yaml:"time_zone"`
-		Location string `yaml:"location"`
+	Postgres struct {
+		PoolMax int    `env-required:"true" yaml:"pool_max" env:"PG_POOL_MAX"`
+		URL     string `env-required:"true" yaml:"url" env:"PG_URL"`
 	}
 
 	// Logger -.
 	Logger struct {
-		Level string `yaml:"log_level"`
+		Level string `env-required:"true" yaml:"log_level"   env:"LOG_LEVEL"`
 	}
 )
 

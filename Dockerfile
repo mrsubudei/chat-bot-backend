@@ -1,26 +1,15 @@
-# Builder
-FROM golang:1.19.4-alpine3.17 as builder
-
-RUN apk update && apk upgrade && \
-    apk --update add git make bash build-base
-
+FROM golang:alpine3.16 AS build
+LABEL stage=build
 WORKDIR /app
+COPY . ./
 
-COPY . .
+RUN apk add build-base
+RUN go build cmd/main.go
+#copy all needed files into second container
 
-RUN make build
+FROM alpine:3.16 AS runner
+WORKDIR /app
+COPY --from=build /app/main /app/main
+COPY /config /app/config
 
-# Distribution
-FROM alpine:latest
-
-RUN apk update && apk upgrade && \
-    apk --update --no-cache add tzdata && \
-    mkdir /app 
-
-WORKDIR /app 
-
-EXPOSE 8081
-
-COPY --from=builder /app/engine /app/
-
-CMD /app/engine
+CMD ["/app/main"]
