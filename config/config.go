@@ -32,8 +32,13 @@ type (
 
 	// MySql -.
 	Postgres struct {
-		PoolMax int    `env-required:"true" yaml:"pool_max" env:"PG_POOL_MAX"`
-		URL     string `env-required:"true" yaml:"url" env:"PG_URL"`
+		PoolMax  int    `env-required:"true" yaml:"pool_max" env:"PG_POOL_MAX"`
+		URL      string `env-required:"true" yaml:"url" env:"PG_URL"`
+		User     string `yaml:"user"`
+		Password string `yaml:"password"`
+		Host     string `yaml:"host"`
+		Port     int    `yaml:"port"`
+		NameDB   string `yaml:"db_name"`
 	}
 
 	// Logger -.

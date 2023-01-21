@@ -21,12 +21,18 @@ func Run(cfg *config.Config) {
 
 	httpServer := httpserver.New(handler)
 
-	// Repository
-	pg, err := postgres.New(cfg.Postgres.URL, postgres.MaxPoolSize(cfg.Postgres.PoolMax))
+	//Repository
+	pg, err := postgres.New(cfg)
 	if err != nil {
-		l.Fatal(fmt.Errorf("app - Run - postgres.New: %w", err))
+		l.Error(fmt.Errorf("app - Run - postgres.New: %w", err))
 	}
-	defer pg.Close()
+	defer func() {
+		err = pg.Close()
+		if err != nil {
+			l.Error(fmt.Errorf("app - Run - pg.Close: %w", err))
+		}
+	}()
+
 	// Waiting signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
@@ -38,7 +44,7 @@ func Run(cfg *config.Config) {
 		l.Error(fmt.Errorf("app - Run - httpServer.Notify: %w", err))
 	}
 
-	// Shutdown
+	//Shutdown
 	err = httpServer.Shutdown()
 	if err != nil {
 		l.Error(fmt.Errorf("app - Run - httpServer.Shutdown: %w", err))

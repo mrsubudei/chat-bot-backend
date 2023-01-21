@@ -3,75 +3,38 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"log"
-	"time"
 
-	"github.com/Masterminds/squirrel"
-	"github.com/jackc/pgx/v4/pgxpool"
-)
-
-const (
-	_defaultMaxPoolSize  = 1
-	_defaultConnAttempts = 10
-	_defaultConnTimeout  = time.Second
+	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/mrsubudei/chat-bot-backend/config"
 )
 
 // Postgres -.
 type Postgres struct {
-	maxPoolSize  int
-	connAttempts int
-	connTimeout  time.Duration
-
-	Builder squirrel.StatementBuilderType
-	Pool    *pgxpool.Pool
+	DB *sql.DB
 }
 
 // New -.
-func New(url string, opts ...Option) (*Postgres, error) {
-	pg := &Postgres{
-		maxPoolSize:  _defaultMaxPoolSize,
-		connAttempts: _defaultConnAttempts,
-		connTimeout:  _defaultConnTimeout,
-	}
-
-	// Custom options
-	for _, opt := range opts {
-		opt(pg)
-	}
-
-	pg.Builder = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-
-	poolConfig, err := pgxpool.ParseConfig(url)
+func New(cfg *config.Config) (*Postgres, error) {
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", cfg.Postgres.User, cfg.Postgres.Password,
+		cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.NameDB)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("postgres - NewPostgres - pgxpool.ParseConfig: %w", err)
+		return nil, err
 	}
 
-	poolConfig.MaxConns = int32(pg.maxPoolSize)
+	db.SetMaxOpenConns(cfg.Postgres.PoolMax)
 
-	for pg.connAttempts > 0 {
-		pg.Pool, err = pgxpool.ConnectConfig(context.Background(), poolConfig)
-		if err == nil {
-			break
-		}
-
-		log.Printf("Postgres is trying to connect, attempts left: %d", pg.connAttempts)
-
-		time.Sleep(pg.connTimeout)
-
-		pg.connAttempts--
-	}
-
+	ctx := context.Background()
+	err = db.PingContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("postgres - NewPostgres - connAttempts == 0: %w", err)
+		return nil, err
 	}
 
-	return pg, nil
+	return &Postgres{db}, nil
 }
 
-// Close -.
-func (p *Postgres) Close() {
-	if p.Pool != nil {
-		p.Pool.Close()
-	}
+func (pg *Postgres) Close() error {
+	return pg.DB.Close()
 }
