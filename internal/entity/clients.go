@@ -18,11 +18,12 @@ type Event struct {
 	EndsAt   time.Time `json:"ends_at"`
 }
 
-type Day struct {
-	DayStarts      time.Time `json:"day_starts"`
-	DayEnds        time.Time `json:"day_ends"`
-	EventsQuantity int       `json:"events_quantity"`
-	EventDuration  int       `json:"event_duration"`
-	BreakStarts    time.Time `json:"break_starts"`
-	BreakEnds      time.Time `json:"break_ends"`
+type Schedule struct {
+	FirstDay      time.Time `json:"first_day"`
+	LastDay       time.Time `json:"last_day"`
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+	StartBreak    time.Time `json:"start_break"`
+	EndBreak      time.Time `json:"end_break"`
+	EventDuration int       `json:"event_duration"`
 }

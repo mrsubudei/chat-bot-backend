@@ -7,5 +7,5 @@ import (
 )
 
 type Clients interface {
-	CreateSchedule(ctx context.Context, schedule entity.Schedule) error
+	StoreSchedule(ctx context.Context, events []entity.Event) error
 }

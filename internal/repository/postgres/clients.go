@@ -16,10 +16,10 @@ func NewClientsRepo(pg *postgres.Postgres) *ClientsRepo {
 	return &ClientsRepo{pg}
 }
 
-func (cr *ClientsRepo) CreateSchedule(ctx context.Context, schedule entity.Schedule) error {
+func (cr *ClientsRepo) StoreSchedule(ctx context.Context, events []entity.Event) error {
 	tx, err := cr.DB.Begin()
 	if err != nil {
-		return fmt.Errorf("ClientsRepo - CreateSchedule - Begin: %w", err)
+		return fmt.Errorf("ClientsRepo - StoreSchedule - Begin: %w", err)
 	}
 	defer func() {
 		err = tx.Rollback()
@@ -30,24 +30,24 @@ func (cr *ClientsRepo) CreateSchedule(ctx context.Context, schedule entity.Sched
 			VALUES($1, $2)
 	`)
 	if err != nil {
-		return fmt.Errorf("ClientsRepo - CreateSchedule - PrepareContext: %w", err)
+		return fmt.Errorf("ClientsRepo - StoreSchedule - PrepareContext: %w", err)
 	}
 	defer stmt.Close()
 
-	for _, v := range schedule.Days {
+	for _, v := range events {
 		res, err := stmt.ExecContext(ctx, v.StartsAt, v.EndsAt)
 		if err != nil {
-			return fmt.Errorf("ClientsRepo - CreateSchedule - Exec: %w", err)
+			return fmt.Errorf("ClientsRepo - StoreSchedule - Exec: %w", err)
 		}
 		affected, err := res.RowsAffected()
 		if affected != 1 || err != nil {
-			return fmt.Errorf("ClientsRepo - CreateSchedule - RowsAffected: %w", err)
+			return fmt.Errorf("ClientsRepo - StoreSchedule - RowsAffected: %w", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("ClientsRepo - CreateSchedule - Commit: %w", err)
+		return fmt.Errorf("ClientsRepo - StoreSchedule - Commit: %w", err)
 	}
 
 	return nil

@@ -2,10 +2,11 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/mrsubudei/chat-bot-backend/internal/service"
 	"github.com/mrsubudei/chat-bot-backend/pkg/logger"
 )
 
-func NewRouter(handler *gin.Engine, l logger.Interface) {
+func NewRouter(handler *gin.Engine, s service.Service, l logger.Interface) {
 	// Options
 	handler.Use(gin.Logger())
 	handler.Use(gin.Recovery())
@@ -23,6 +24,6 @@ func NewRouter(handler *gin.Engine, l logger.Interface) {
 	// Routers
 	h := handler.Group("/v1")
 	{
-		newTranslationRoutes(h)
+		newTranslationRoutes(h, s, l)
 	}
 }
