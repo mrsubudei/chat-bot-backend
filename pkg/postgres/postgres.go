@@ -17,9 +17,8 @@ type Postgres struct {
 
 // New -.
 func New(cfg *config.Config) (*Postgres, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", cfg.Postgres.User, cfg.Postgres.Password,
-		cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.NameDB)
-	db, err := sql.Open("pgx", dsn)
+	db, err := sql.Open("pgx", cfg.Postgres.URL)
+	fmt.Println(cfg.Postgres.URL)
 	if err != nil {
 		return nil, err
 	}

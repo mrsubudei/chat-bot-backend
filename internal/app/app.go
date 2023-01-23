@@ -19,7 +19,7 @@ import (
 func Run(cfg *config.Config) {
 	l := logger.New(cfg.Logger.Level)
 
-	//Postgres
+	// Postgres
 	pg, err := postgres.New(cfg)
 	if err != nil {
 		l.Error(fmt.Errorf("app - Run - postgres.New: %w", err))
@@ -30,6 +30,12 @@ func Run(cfg *config.Config) {
 			l.Error(fmt.Errorf("app - Run - pg.Close: %w", err))
 		}
 	}()
+
+	// Migrate
+	err = Migrate(cfg)
+	if err != nil {
+		l.Error(fmt.Errorf("app - Run - Migrate: %w", err))
+	}
 
 	// Repository
 	repo := p.NewClientsRepo(pg)
@@ -53,7 +59,7 @@ func Run(cfg *config.Config) {
 		l.Error(fmt.Errorf("app - Run - httpServer.Notify: %w", err))
 	}
 
-	//Shutdown
+	// Shutdown
 	err = httpServer.Shutdown()
 	if err != nil {
 		l.Error(fmt.Errorf("app - Run - httpServer.Shutdown: %w", err))

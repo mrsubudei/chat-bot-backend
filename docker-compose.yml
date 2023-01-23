@@ -8,6 +8,8 @@ services:
       PG_URL: 'postgres://user:pass@postgres:5432/postgres'
     ports:
       - "8087:8087"
+    depends_on:
+      - postgres
 
   postgres:
     container_name: postgres

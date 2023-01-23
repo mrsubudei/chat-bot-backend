@@ -11,5 +11,6 @@ FROM alpine:3.16 AS runner
 WORKDIR /app
 COPY --from=build /app/main /app/main
 COPY /config /app/config
+COPY /migrations /app/migrations
 
 CMD ["/app/main"]
