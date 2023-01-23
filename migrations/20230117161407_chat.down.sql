@@ -1,2 +1,2 @@
--- +goose Down
-DROP TABLE clients;
+DROP TABLE IF EXISTS clients;
+DROP TABLE IF EXISTS events;

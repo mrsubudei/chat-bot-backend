@@ -12,5 +12,6 @@ WORKDIR /app
 COPY --from=build /app/main /app/main
 COPY /config /app/config
 COPY /migrations /app/migrations
+COPY .env /app/.env
 
 CMD ["/app/main"]

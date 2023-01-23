@@ -26,4 +26,5 @@ type Schedule struct {
 	StartBreak    time.Time `json:"start_break"`
 	EndBreak      time.Time `json:"end_break"`
 	EventDuration int       `json:"event_duration"`
+	DocktorName   string    `json:"docktor_name"`
 }

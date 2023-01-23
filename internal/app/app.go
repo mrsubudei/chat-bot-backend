@@ -43,6 +43,7 @@ func Run(cfg *config.Config) {
 	// Service
 	service := service.NewClientsService(repo)
 
+	gin.SetMode(gin.ReleaseMode)
 	handler := gin.New()
 	v1.NewRouter(handler, service, l)
 
