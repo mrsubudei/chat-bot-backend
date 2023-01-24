@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package appointment;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/mrsubudei/chat-bot-backend/gateway/proto/appointment";
+
+service Appointment {
+  rpc CreateSchedule (ScheduleRequest) returns (ScheduleResponse) {}
+}
+
+message Schedule {
+    google.protobuf.Timestamp first_day = 1;
+    google.protobuf.Timestamp last_day = 2;
+    google.protobuf.Timestamp start_time = 3;
+    google.protobuf.Timestamp end_time = 4;
+    google.protobuf.Timestamp start_break = 5;
+    google.protobuf.Timestamp end_break = 6;
+    int32 event_duration_minutes = 7;
+}
+
+message Empty {
+}
+
+message ScheduleRequest {
+  Schedule value = 1;
+}
+
+message ScheduleResponse {
+  Empty value = 1;
+}

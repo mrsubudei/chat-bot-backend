@@ -2,8 +2,8 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/mrsubudei/chat-bot-backend/internal/service"
-	"github.com/mrsubudei/chat-bot-backend/pkg/logger"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/service"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
 )
 
 func NewRouter(handler *gin.Engine, s service.Service, l logger.Interface) {

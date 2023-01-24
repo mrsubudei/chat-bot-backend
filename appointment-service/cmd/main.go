@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/mrsubudei/chat-bot-backend/config"
-	"github.com/mrsubudei/chat-bot-backend/internal/app"
+	config "github.com/mrsubudei/chat-bot-backend/appointment-service/config"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/app"
 )
 
 func main() {

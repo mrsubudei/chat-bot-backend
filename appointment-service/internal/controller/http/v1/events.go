@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mrsubudei/chat-bot-backend/internal/entity"
-	"github.com/mrsubudei/chat-bot-backend/internal/service"
-	"github.com/mrsubudei/chat-bot-backend/pkg/logger"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/service"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
 )
 
 type translationRoutes struct {

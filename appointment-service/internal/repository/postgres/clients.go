@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mrsubudei/chat-bot-backend/internal/entity"
-	"github.com/mrsubudei/chat-bot-backend/pkg/postgres"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/postgres"
 )
 
 type ClientsRepo struct {

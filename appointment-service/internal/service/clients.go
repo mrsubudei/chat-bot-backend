@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mrsubudei/chat-bot-backend/internal/entity"
-	"github.com/mrsubudei/chat-bot-backend/internal/repository"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository"
 )
 
 type ClientsService struct {

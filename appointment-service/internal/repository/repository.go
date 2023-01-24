@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/mrsubudei/chat-bot-backend/internal/entity"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
 )
 
 type Clients interface {

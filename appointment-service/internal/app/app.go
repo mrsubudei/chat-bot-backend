@@ -7,13 +7,13 @@ import (
 	"syscall"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mrsubudei/chat-bot-backend/config"
-	v1 "github.com/mrsubudei/chat-bot-backend/internal/controller/http/v1"
-	p "github.com/mrsubudei/chat-bot-backend/internal/repository/postgres"
-	"github.com/mrsubudei/chat-bot-backend/internal/service"
-	"github.com/mrsubudei/chat-bot-backend/pkg/httpserver"
-	"github.com/mrsubudei/chat-bot-backend/pkg/logger"
-	"github.com/mrsubudei/chat-bot-backend/pkg/postgres"
+	config "github.com/mrsubudei/chat-bot-backend/appointment-service/config"
+	v1 "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/controller/http/v1"
+	p "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository/postgres"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/service"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/httpserver"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/postgres"
 )
 
 func Run(cfg *config.Config) {

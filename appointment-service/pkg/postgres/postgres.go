@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/mrsubudei/chat-bot-backend/config"
+	config "github.com/mrsubudei/chat-bot-backend/appointment-service/config"
 )
 
 // Postgres -.
