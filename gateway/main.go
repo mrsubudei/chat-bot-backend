@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/mrsubudei/chat-bot-backend/gateway/proto/appointment"
+	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -59,6 +59,7 @@ func main() {
 		StartBreak:           sb,
 		EndBreak:             eb,
 		EventDurationMinutes: 30,
+		DoctorId:             []int32{1, 2},
 	}
 	e, err := c.CreateSchedule(context.Background(), &pb.ScheduleRequest{Value: schedule})
 	if err != nil {

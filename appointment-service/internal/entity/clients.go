@@ -3,27 +3,35 @@ package entity
 import "time"
 
 type Client struct {
-	Id    int    `json:"id"`
-	Name  string `json:"name"`
-	Phone string `json:"phone"`
-	Email string `json:"email"`
+	Id     int32
+	Name   string
+	Phone  string
+	Email  string
+	Events []Event
+}
+
+type Doctor struct {
+	Id      int32
+	Name    string
+	Surname string
+	Phone   string
 }
 
 type Event struct {
-	Id       int       `json:"id"`
-	Category string    `json:"category"`
-	ClientId int       `json:"client_id"`
-	Title    string    `json:"title"`
-	StartsAt time.Time `json:"starts_at"`
-	EndsAt   time.Time `json:"ends_at"`
+	Id       int32
+	ClientId int32
+	DoctorId int32
+	StartsAt time.Time
+	EndsAt   time.Time
 }
 
 type Schedule struct {
-	FirstDay      time.Time `json:"first_day"`
-	LastDay       time.Time `json:"last_day"`
-	StartTime     time.Time `json:"start_time"`
-	EndTime       time.Time `json:"end_time"`
-	StartBreak    time.Time `json:"start_break"`
-	EndBreak      time.Time `json:"end_break"`
-	EventDuration int       `json:"event_duration"`
+	FirstDay      time.Time
+	LastDay       time.Time
+	StartTime     time.Time
+	EndTime       time.Time
+	StartBreak    time.Time
+	EndBreak      time.Time
+	EventDuration int32
+	DoctorIds     []int32
 }

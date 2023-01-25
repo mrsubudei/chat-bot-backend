@@ -23,7 +23,7 @@ func (cs *ClientsService) CreateSchedule(ctx context.Context, schedule entity.Sc
 	dayEvents := []entity.Event{}
 	first := schedule.FirstDay
 	last := schedule.LastDay.AddDate(0, 0, 1)
-	increase := time.Duration(schedule.EventDuration * int(time.Minute))
+	increase := time.Duration(int(schedule.EventDuration) * int(time.Minute))
 
 	startTime := schedule.StartTime.Format(layout)[11:]
 	endTime := schedule.EndTime.Format(layout)[11:]
@@ -63,7 +63,10 @@ func (cs *ClientsService) CreateSchedule(ctx context.Context, schedule entity.Sc
 			event := entity.Event{}
 			event.StartsAt = i
 			event.EndsAt = i.Add(increase)
-			dayEvents = append(dayEvents, event)
+			for u := 0; u < len(schedule.DoctorIds); u++ {
+				event.DoctorId = schedule.DoctorIds[u]
+				dayEvents = append(dayEvents, event)
+			}
 		}
 
 		first = first.AddDate(0, 0, 1)

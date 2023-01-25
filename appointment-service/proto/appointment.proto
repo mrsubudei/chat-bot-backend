@@ -18,6 +18,7 @@ message Schedule {
     google.protobuf.Timestamp start_break = 5;
     google.protobuf.Timestamp end_break = 6;
     int32 event_duration_minutes = 7;
+    repeated int32 doctor_id = 8;
 }
 
 message Empty {

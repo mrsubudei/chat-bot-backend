@@ -12,7 +12,7 @@ import (
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/service"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/postgres"
-	pb "github.com/mrsubudei/chat-bot-backend/gateway/proto/appointment"
+	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/proto"
 	"google.golang.org/grpc"
 )
 
@@ -33,7 +33,7 @@ func (as *AppointmentServer) CreateSchedule(ctx context.Context,
 	et := in.Value.EndTime.AsTime()
 	sb := in.Value.StartBreak.AsTime()
 	eb := in.Value.EndBreak.AsTime()
-	fmt.Println(in)
+
 	schedule := entity.Schedule{
 		FirstDay:      fd,
 		LastDay:       ld,
@@ -41,7 +41,8 @@ func (as *AppointmentServer) CreateSchedule(ctx context.Context,
 		EndTime:       et,
 		StartBreak:    sb,
 		EndBreak:      eb,
-		EventDuration: int(in.Value.EventDurationMinutes),
+		EventDuration: in.Value.EventDurationMinutes,
+		DoctorIds:     in.Value.DoctorId,
 	}
 
 	err := as.service.CreateSchedule(ctx, schedule)
