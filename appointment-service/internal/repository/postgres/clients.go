@@ -33,11 +33,11 @@ func (cr *ClientsRepo) StoreDoctor(ctx context.Context, doctor entity.Doctor) er
 	return nil
 }
 
-func (cr *ClientsRepo) DeleteDoctor(ctx context.Context, doctor entity.Doctor) error {
+func (cr *ClientsRepo) DeleteDoctor(ctx context.Context, id int32) error {
 	res, err := cr.DB.ExecContext(ctx, `
 		DELETE FROM doctors
 		WHERE id = $1
-	`, doctor.Id)
+	`, id)
 	if err != nil {
 		return fmt.Errorf("ClientsRepo - DeleteDoctor - ExecContext: %w", err)
 	}
@@ -50,17 +50,21 @@ func (cr *ClientsRepo) DeleteDoctor(ctx context.Context, doctor entity.Doctor) e
 	return nil
 }
 
-func (cr *ClientsRepo) FetchDoctors(ctx context.Context,
-	doctor entity.Doctor) ([]entity.Doctor, error) {
+func (cr *ClientsRepo) FetchDoctors(ctx context.Context) ([]entity.Doctor, error) {
 	doctors := []entity.Doctor{}
-	rows, err := cr.DB.QueryContext(ctx, `
+	stmt, err := cr.DB.PrepareContext(ctx, `
 		SELECT * FROM doctors
 		ORDER BY id
 	`)
 	if err != nil {
+		return nil, fmt.Errorf("ClientsRepo - FetchDoctors - PrepareContext: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("ClientsRepo - FetchDoctors - QueryContext: %w", err)
 	}
-	defer rows.Close()
 
 	for rows.Next() {
 		var phone sql.NullString
@@ -78,35 +82,20 @@ func (cr *ClientsRepo) FetchDoctors(ctx context.Context,
 	return doctors, nil
 }
 
-func (cr *ClientsRepo) StoreClient(ctx context.Context, client entity.Client) error {
-	res, err := cr.DB.ExecContext(ctx, `
-		INSERT INTO clients(name, phone, email)
-			VALUES($1, $2, $3)
-	`, client.Name, client.Phone, client.Email)
-	if err != nil {
-		return fmt.Errorf("ClientsRepo - StoreClient - ExecContext: %w", err)
-	}
-
-	rows, err := res.RowsAffected()
-	if rows != 1 || err != nil {
-		return fmt.Errorf("ClientsRepo - StoreClient - RowsAffected: %w", err)
-	}
-
-	return nil
-}
-
 func (cr *ClientsRepo) StoreSchedule(ctx context.Context, events []entity.Event) error {
 	tx, err := cr.DB.Begin()
 	if err != nil {
 		return fmt.Errorf("ClientsRepo - StoreSchedule - Begin: %w", err)
 	}
-	defer func() {
-		err = tx.Rollback()
-	}()
+	defer tx.Rollback()
+
+	if err := cr.checkConstraintViolation(ctx, tx, events); err != nil {
+		return err
+	}
 
 	stmt, err := cr.DB.PrepareContext(ctx, `
 		INSERT INTO events(doctor_id, starts_at, ends_at)
-			VALUES($1, $2, $3)
+		VALUES($1, $2, $3)
 	`)
 	if err != nil {
 		return fmt.Errorf("ClientsRepo - StoreSchedule - PrepareContext: %w", err)
@@ -116,7 +105,7 @@ func (cr *ClientsRepo) StoreSchedule(ctx context.Context, events []entity.Event)
 	for _, v := range events {
 		res, err := stmt.ExecContext(ctx, v.DoctorId, v.StartsAt, v.EndsAt)
 		if err != nil {
-			return fmt.Errorf("ClientsRepo - StoreSchedule - Exec: %w", err)
+			return fmt.Errorf("ClientsRepo - StoreSchedule - ExecContext: %w", err)
 		}
 		affected, err := res.RowsAffected()
 		if affected != 1 || err != nil {
@@ -132,14 +121,40 @@ func (cr *ClientsRepo) StoreSchedule(ctx context.Context, events []entity.Event)
 	return nil
 }
 
+func (cr *ClientsRepo) checkConstraintViolation(ctx context.Context, tx *sql.Tx, events []entity.Event) error {
+	stmt, err := cr.DB.PrepareContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM events WHERE date(starts_at) = $1)
+	`)
+	if err != nil {
+		return fmt.Errorf("ClientsRepo - checkViolation - PrepareContext: %w", err)
+	}
+	defer stmt.Close()
+	for _, v := range events {
+		row := stmt.QueryRowContext(ctx, v.StartsAt)
+		if err != nil {
+			return fmt.Errorf("ClientsRepo - checkViolation - QueryContext: %w", err)
+		}
+		exist := false
+		err = row.Scan(&exist)
+		if err != nil {
+			return fmt.Errorf("ClientsRepo - checkViolation - Scan: %w", err)
+		}
+		if exist {
+			return entity.ErrUniqueDateViolation
+		}
+	}
+	return nil
+}
+
 func (cr *ClientsRepo) FetchOpenEventsByDoctor(ctx context.Context,
-	doctor entity.Doctor) ([]entity.Event, error) {
+	doctorId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
-		SELECT * FROM events
+		SELECT id, doctor_id, starts_at, ends_at 
+		FROM events
 		WHERE doctor_id = $1 AND starts_at > now() AND client_id is NULL
 		ORDER BY id
-	`, doctor.Id)
+	`, doctorId)
 	if err != nil {
 		return nil, fmt.Errorf("ClientsRepo - FetchEventsByDoctor - QueryContext: %w", err)
 	}
@@ -147,8 +162,7 @@ func (cr *ClientsRepo) FetchOpenEventsByDoctor(ctx context.Context,
 
 	for rows.Next() {
 		event := entity.Event{}
-		err = rows.Scan(&event.Id, &event.ClientId, &event.DoctorId,
-			&event.StartsAt, &event.EndsAt)
+		err = rows.Scan(&event.Id, &doctorId, &event.StartsAt, &event.EndsAt)
 		if err == sql.ErrNoRows {
 			return nil, entity.ErrNoData
 		} else if err != nil {
@@ -162,13 +176,14 @@ func (cr *ClientsRepo) FetchOpenEventsByDoctor(ctx context.Context,
 }
 
 func (cr *ClientsRepo) FetchReservedEventsByDoctor(ctx context.Context,
-	doctor entity.Doctor) ([]entity.Event, error) {
+	doctorId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
 		SELECT * FROM events
+		FROM events
 		WHERE doctor_id = $1 AND starts_at > now() AND client_id >= 1
 		ORDER BY id
-	`, doctor.Id)
+	`, doctorId)
 	if err != nil {
 		return nil, fmt.Errorf("ClientsRepo - FetchEventsByDoctor - QueryContext: %w", err)
 	}
@@ -191,13 +206,13 @@ func (cr *ClientsRepo) FetchReservedEventsByDoctor(ctx context.Context,
 }
 
 func (cr *ClientsRepo) FetchReservedEventsByClient(ctx context.Context,
-	client entity.Client) ([]entity.Event, error) {
+	clientId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
 		SELECT * FROM events
 		WHERE client_id = $1 AND starts_at > now()
 		ORDER BY id
-	`, client.Id)
+	`, clientId)
 	if err != nil {
 		return nil, fmt.Errorf("ClientsRepo - FetchEventsByClient - QueryContext: %w", err)
 	}
@@ -258,7 +273,6 @@ func (cr *ClientsRepo) UpdateEvent(ctx context.Context, event entity.Event) erro
 	switch event.ClientId {
 	case 0:
 		res, err := cr.DB.ExecContext(ctx, query, "NULL", event.Id)
-
 		if err != nil {
 			return fmt.Errorf("ClientsRepo - UpdateEvent - ExecContext case #0: %w", err)
 		}
@@ -269,7 +283,6 @@ func (cr *ClientsRepo) UpdateEvent(ctx context.Context, event entity.Event) erro
 		}
 	default:
 		res, err := cr.DB.ExecContext(ctx, query, event.ClientId, event.Id)
-
 		if err != nil {
 			return fmt.Errorf("ClientsRepo - UpdateEvent - ExecContext case #default: %w", err)
 		}
