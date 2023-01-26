@@ -235,13 +235,13 @@ func (cr *ClientsRepo) FetchReservedEventsByClient(ctx context.Context,
 }
 
 func (cr *ClientsRepo) FetchAllEventsByClient(ctx context.Context,
-	client entity.Client) ([]entity.Event, error) {
+	clientId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
 		SELECT * FROM events
 		WHERE client_id = $1
 		ORDER BY id
-	`, client.Id)
+	`, clientId)
 	if err != nil {
 		return nil, fmt.Errorf("ClientsRepo - FetchAllEventsByClient - QueryContext: %w", err)
 	}
@@ -264,7 +264,13 @@ func (cr *ClientsRepo) FetchAllEventsByClient(ctx context.Context,
 }
 
 func (cr *ClientsRepo) UpdateEvent(ctx context.Context, event entity.Event) error {
-	query := `
+	query1 := `
+		UPDATE events
+		SET client_id = NULL
+		WHERE id = $1
+	`
+
+	query2 := `
 		UPDATE events
 		SET client_id = $1
 		WHERE id = $2
@@ -272,7 +278,7 @@ func (cr *ClientsRepo) UpdateEvent(ctx context.Context, event entity.Event) erro
 
 	switch event.ClientId {
 	case 0:
-		res, err := cr.DB.ExecContext(ctx, query, "NULL", event.Id)
+		res, err := cr.DB.ExecContext(ctx, query1, event.Id)
 		if err != nil {
 			return fmt.Errorf("ClientsRepo - UpdateEvent - ExecContext case #0: %w", err)
 		}
@@ -282,7 +288,7 @@ func (cr *ClientsRepo) UpdateEvent(ctx context.Context, event entity.Event) erro
 			return fmt.Errorf("ClientsRepo - UpdateEvent - RowsAffected case #0: %w", err)
 		}
 	default:
-		res, err := cr.DB.ExecContext(ctx, query, event.ClientId, event.Id)
+		res, err := cr.DB.ExecContext(ctx, query2, event.ClientId, event.Id)
 		if err != nil {
 			return fmt.Errorf("ClientsRepo - UpdateEvent - ExecContext case #default: %w", err)
 		}

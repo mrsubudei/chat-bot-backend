@@ -14,6 +14,6 @@ type Clients interface {
 	FetchOpenEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
 	FetchReservedEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
 	FetchReservedEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)
-	FetchAllEventsByClient(ctx context.Context, client entity.Client) ([]entity.Event, error)
+	FetchAllEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)
 	UpdateEvent(ctx context.Context, event entity.Event) error
 }
