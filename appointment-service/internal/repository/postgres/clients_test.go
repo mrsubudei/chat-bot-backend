@@ -121,47 +121,70 @@ func TestStoreSchedule(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"exists"}).
 		AddRow(false)
+	ctx := context.Background()
+
+	mock.ExpectBegin()
+	prep := mock.ExpectPrepare(query1)
+	prep.ExpectQuery().WithArgs().WillReturnRows(rows)
+	prep = mock.ExpectPrepare(query2)
+	prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
+		WillReturnResult(driver.RowsAffected(1))
+	mock.ExpectCommit()
+
+	repo := p.NewClientsRepo(db)
+	if err = repo.StoreSchedule(ctx, events); err != nil {
+		t.Fatalf("error was not expected while updating stats: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+
+}
+
+func TestStoreScheduleShouldRoleBack(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	now := time.Now()
+	events := []entity.Event{
+		{
+			DoctorId: 1,
+			StartsAt: now,
+			EndsAt:   now.Add(time.Second),
+		},
+	}
+	query1 := regexp.QuoteMeta(`
+		SELECT EXISTS (SELECT 1 FROM events WHERE date(starts_at) = $1)
+	`)
+
+	query2 := regexp.QuoteMeta(`
+		INSERT INTO events(doctor_id, starts_at, ends_at)
+		VALUES($1, $2, $3)
+	`)
+
+	rows := sqlmock.NewRows([]string{"exists"}).
+		AddRow(false)
 
 	ctx := context.Background()
+
+	mock.ExpectBegin()
+	prep := mock.ExpectPrepare(query1)
+	prep.ExpectQuery().WithArgs().WillReturnRows(rows)
+	prep = mock.ExpectPrepare(query2)
+	prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
+		WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectRollback()
 	repo := p.NewClientsRepo(db)
+	if err = repo.StoreSchedule(ctx, events); err == nil {
+		t.Fatalf("error was not expected while updating stats: %s", err)
+	}
 
-	t.Run("OK", func(t *testing.T) {
-		mock.ExpectBegin()
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
 
-		prep := mock.ExpectPrepare(query1)
-		prep.ExpectQuery().WithArgs().WillReturnRows(rows)
-
-		prep = mock.ExpectPrepare(query2)
-		prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
-			WillReturnResult(driver.RowsAffected(1))
-		mock.ExpectCommit()
-
-		if err = repo.StoreSchedule(ctx, events); err != nil {
-			t.Fatalf("error was not expected while updating stats: %s", err)
-		}
-
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Fatalf("there were unfulfilled expectations: %s", err)
-		}
-	})
-
-	t.Run("ShouldRollBack", func(t *testing.T) {
-		mock.ExpectBegin()
-		prep := mock.ExpectPrepare(query1)
-		prep.ExpectQuery().WithArgs().WillReturnRows(rows)
-		prep = mock.ExpectPrepare(query2)
-		prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
-			WillReturnError(fmt.Errorf("some error"))
-		mock.ExpectRollback()
-
-		if err = repo.StoreSchedule(ctx, events); err == nil {
-			t.Fatalf("error was not expected while updating stats: %s", err)
-		}
-
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Fatalf("there were unfulfilled expectations: %s", err)
-		}
-	})
 }
 
 func TestFetchOpenEventsByDoctor(t *testing.T) {
