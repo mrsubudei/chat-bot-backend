@@ -6,14 +6,13 @@ import (
 	"fmt"
 
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
-	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/postgres"
 )
 
 type ClientsRepo struct {
-	*postgres.Postgres
+	*sql.DB
 }
 
-func NewClientsRepo(pg *postgres.Postgres) *ClientsRepo {
+func NewClientsRepo(pg *sql.DB) *ClientsRepo {
 	return &ClientsRepo{pg}
 }
 

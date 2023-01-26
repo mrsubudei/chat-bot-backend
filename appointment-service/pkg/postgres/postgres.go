@@ -10,13 +10,8 @@ import (
 	config "github.com/mrsubudei/chat-bot-backend/appointment-service/config"
 )
 
-// Postgres -.
-type Postgres struct {
-	DB *sql.DB
-}
-
 // New -.
-func New(cfg *config.Config) (*Postgres, error) {
+func New(cfg *config.Config) (*sql.DB, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", cfg.Postgres.User, cfg.Postgres.Password,
 		cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.NameDB)
 	db, err := sql.Open("pgx", dsn)
@@ -32,9 +27,5 @@ func New(cfg *config.Config) (*Postgres, error) {
 		return nil, err
 	}
 
-	return &Postgres{db}, nil
-}
-
-func (pg *Postgres) Close() error {
-	return pg.DB.Close()
+	return db, nil
 }
