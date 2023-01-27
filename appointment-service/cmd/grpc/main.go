@@ -47,7 +47,7 @@ func (as *AppointmentServer) CreateSchedule(ctx context.Context,
 
 	err := as.service.CreateSchedule(ctx, schedule)
 	if err != nil {
-		log.Fatal(err)
+		return &pb.ScheduleResponse{}, err
 	}
 
 	return &pb.ScheduleResponse{}, nil

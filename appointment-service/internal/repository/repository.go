@@ -6,8 +6,10 @@ import (
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
 )
 
-type Clients interface {
+type Events interface {
 	StoreDoctor(ctx context.Context, doctor entity.Doctor) error
+	GetDoctor(ctx context.Context, doctorId int32) (entity.Doctor, error)
+	UpdateDoctor(ctx context.Context, doctor entity.Doctor) (entity.Doctor, error)
 	DeleteDoctor(ctx context.Context, id int32) error
 	FetchDoctors(ctx context.Context) ([]entity.Doctor, error)
 	StoreSchedule(ctx context.Context, events []entity.Event) error

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -34,15 +35,15 @@ func main() {
 	// Contact the server and print out its response.
 
 	layout := "2006-01-02 15:04:05"
-	firstDay, err := time.Parse(layout, "2023-01-26 00:00:00")
+	firstDay, err := time.Parse(layout, "2023-01-28 00:00:00")
 	if err != nil {
 		log.Fatal(err)
 	}
-	lastDay, _ := time.Parse(layout, "2023-01-26 00:00:00")
-	startTime, _ := time.Parse(layout, "2023-01-26 09:00:00")
-	endTime, _ := time.Parse(layout, "2023-01-26 15:00:00")
-	startBreak, _ := time.Parse(layout, "2023-01-26 12:00:00")
-	endBreak, _ := time.Parse(layout, "2023-01-26 13:00:00")
+	lastDay, _ := time.Parse(layout, "2023-01-28 00:00:00")
+	startTime, _ := time.Parse(layout, "2023-01-28 09:00:00")
+	endTime, _ := time.Parse(layout, "2023-01-28 15:00:00")
+	startBreak, _ := time.Parse(layout, "2023-01-28 12:00:00")
+	endBreak, _ := time.Parse(layout, "2023-01-28 13:00:00")
 
 	fd := timestamppb.New(firstDay)
 	lt := timestamppb.New(lastDay)
@@ -59,11 +60,11 @@ func main() {
 		StartBreak:           sb,
 		EndBreak:             eb,
 		EventDurationMinutes: 30,
-		DoctorId:             []int32{1, 2},
+		DoctorId:             []int32{9, 10},
 	}
 	e, err := c.CreateSchedule(context.Background(), &pb.ScheduleRequest{Value: schedule})
 	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+		fmt.Println(err)
 	}
 	e.GetValue()
 }

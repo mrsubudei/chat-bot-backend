@@ -3,6 +3,7 @@ package entity
 import "errors"
 
 var (
-	ErrNoData           = errors.New("there are no data")
-	ErrDateAlreadyExist = errors.New("events with date already exist")
+	ErrDateAlreadyExists   = errors.New("events with given dates already exist")
+	ErrEntityAlreadyExists = errors.New("entity with these data already exists")
+	ErrEntityDoesNotExist  = errors.New("entity with these data does not exist")
 )

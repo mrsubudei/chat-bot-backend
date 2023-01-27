@@ -15,7 +15,7 @@ import (
 	p "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository/postgres"
 )
 
-func TestStoredoctor(t *testing.T) {
+func TestStoreDoctor(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -35,12 +35,133 @@ func TestStoredoctor(t *testing.T) {
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	if err = repo.StoreDoctor(ctx, doctor); err != nil {
-		t.Fatalf("error was not expected while updating stats: %s", err)
+		t.Fatalf("error was not expected: %s", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("there were unfulfilled expectations: %s", err)
 	}
+}
+
+func TestGetDoctor(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	doctorId := int32(3)
+	rows := sqlmock.NewRows([]string{"id", "name", "surname", "phone"}).
+		AddRow(doctorId, "Vasya", "Pupkin", "87776542154")
+
+	query := regexp.QuoteMeta(`
+		SELECT id, name, surname, phone
+		FROM doctors
+		WHERE id = $1
+	`)
+
+	mock.ExpectQuery(query).WithArgs(doctorId).WillReturnRows(rows)
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+	doctors, err := repo.GetDoctor(ctx, doctorId)
+	if err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
+	assert.NoError(t, err)
+	assert.NotNil(t, doctors)
+}
+
+func TestUpdateDoctor(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	doctorId := int32(1)
+	rows := sqlmock.NewRows([]string{"id", "name", "surname", "phone"}).
+		AddRow(doctorId, "Vasya", "Pupkin", "87776542154")
+	doctor := entity.Doctor{
+		Id:      doctorId,
+		Name:    "Duhast",
+		Surname: "Vicheslavovich",
+		Phone:   "8-777-564-87-48",
+	}
+	rows2 := sqlmock.NewRows([]string{"id", "name", "surname", "phone"}).
+		AddRow(doctorId, "Duhast", "Vicheslavovich", "8-777-564-87-48")
+	query1 := regexp.QuoteMeta(`
+		SELECT id, name, surname, phone
+		FROM doctors
+		WHERE id = $1
+	`)
+	query2 := regexp.QuoteMeta(`
+		UPDATE doctors
+		SET name = $1, surname = $2, phone = $3
+		WHERE id = $4
+	`)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(query1).WithArgs(doctorId).WillReturnRows(rows)
+	mock.ExpectExec(query2).WithArgs(doctor.Name, doctor.Surname, doctor.Phone, doctor.Id).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery(query1).WithArgs(doctorId).WillReturnRows(rows2)
+	mock.ExpectCommit()
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+
+	if _, err := repo.UpdateDoctor(ctx, doctor); err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+
+}
+
+func TestUpdateDoctorShouldRollback(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	doctorId := int32(1)
+	rows := sqlmock.NewRows([]string{"id", "name", "surname", "phone"}).
+		AddRow(doctorId, "Vasya", "Pupkin", "87776542154")
+	doctor := entity.Doctor{
+		Id:      doctorId,
+		Name:    "Duhast",
+		Surname: "Vicheslavovich",
+		Phone:   "8-777-564-87-48",
+	}
+	query1 := regexp.QuoteMeta(`
+		SELECT id, name, surname, phone
+		FROM doctors
+		WHERE id = $1
+	`)
+	query2 := regexp.QuoteMeta(`
+		UPDATE doctors
+		SET name = $1, surname = $2, phone = $3
+		WHERE id = $4
+	`)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(query1).WithArgs(doctorId).WillReturnRows(rows)
+	mock.ExpectExec(query2).WithArgs(doctor.Name, doctor.Surname, doctor.Phone, doctor.Id).
+		WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+
+	if _, err := repo.UpdateDoctor(ctx, doctor); err == nil {
+		t.Fatal("expected error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+
 }
 
 func TestDeletedoctor(t *testing.T) {
@@ -50,8 +171,8 @@ func TestDeletedoctor(t *testing.T) {
 	}
 
 	query := regexp.QuoteMeta(`
-	DELETE FROM doctors
-	WHERE id = $1
+		DELETE FROM doctors
+		WHERE id = $1
 	`)
 
 	doctorID := int32(1)
@@ -63,7 +184,7 @@ func TestDeletedoctor(t *testing.T) {
 	repo := p.NewEventsRepo(db)
 
 	if err = repo.DeleteDoctor(ctx, doctorID); err != nil {
-		t.Fatalf("error was not expected while updating stats: %s", err)
+		t.Fatalf("error was not expected: %s", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -82,7 +203,7 @@ func TestFetchdoctors(t *testing.T) {
 		AddRow(2, "Duhast", "Vicheslavovich", "87776542151")
 
 	query := regexp.QuoteMeta(`
-		SELECT doctor_id, name, surname, phone
+		SELECT id, name, surname, phone
 		FROM doctors
 		ORDER BY id
 	`)
@@ -94,6 +215,9 @@ func TestFetchdoctors(t *testing.T) {
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	doctors, err := repo.FetchDoctors(ctx)
+	if err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
 	assert.NoError(t, err)
 	assert.NotNil(t, doctors)
 }
@@ -134,7 +258,7 @@ func TestStoreSchedule(t *testing.T) {
 
 	repo := p.NewEventsRepo(db)
 	if err = repo.StoreSchedule(ctx, events); err != nil {
-		t.Fatalf("error was not expected while updating stats: %s", err)
+		t.Fatalf("error was not expected: %s", err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -143,7 +267,7 @@ func TestStoreSchedule(t *testing.T) {
 
 }
 
-func TestStoreScheduleShouldRoleBack(t *testing.T) {
+func TestStoreScheduleShouldRollback(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -179,7 +303,7 @@ func TestStoreScheduleShouldRoleBack(t *testing.T) {
 	mock.ExpectRollback()
 	repo := p.NewEventsRepo(db)
 	if err = repo.StoreSchedule(ctx, events); err == nil {
-		t.Fatalf("error was not expected while updating stats: %s", err)
+		t.Fatal("exptected error")
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -212,6 +336,9 @@ func TestFetchOpenEventsByDoctor(t *testing.T) {
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchOpenEventsByDoctor(ctx, doctorId)
+	if err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
 }
@@ -240,6 +367,9 @@ func TestFetchReservedEventsByDoctor(t *testing.T) {
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchReservedEventsByDoctor(ctx, doctorId)
+	if err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
 }
@@ -268,6 +398,9 @@ func TestFetchReservedEventsByClient(t *testing.T) {
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchReservedEventsByClient(ctx, clientId)
+	if err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
 }
@@ -296,6 +429,9 @@ func TestFetchAllEventsByClient(t *testing.T) {
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchAllEventsByClient(ctx, clientId)
+	if err != nil {
+		t.Fatalf("error was not expected: %s", err)
+	}
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
 }
@@ -335,7 +471,7 @@ func TestUpdateEvent(t *testing.T) {
 		repo := p.NewEventsRepo(db)
 
 		if err = repo.UpdateEvent(ctx, event1); err != nil {
-			t.Fatalf("error was not expected while updating stats: %s", err)
+			t.Fatalf("error was not expected: %s", err)
 		}
 
 		if err := mock.ExpectationsWereMet(); err != nil {
@@ -351,7 +487,7 @@ func TestUpdateEvent(t *testing.T) {
 		repo := p.NewEventsRepo(db)
 
 		if err = repo.UpdateEvent(ctx, event2); err != nil {
-			t.Fatalf("error was not expected while updating stats: %s", err)
+			t.Fatalf("error was not expected: %s", err)
 		}
 
 		if err := mock.ExpectationsWereMet(); err != nil {

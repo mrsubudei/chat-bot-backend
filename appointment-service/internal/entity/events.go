@@ -2,14 +2,6 @@ package entity
 
 import "time"
 
-type Client struct {
-	Id     int32
-	Name   string
-	Phone  string
-	Email  string
-	Events []Event
-}
-
 type Doctor struct {
 	Id      int32
 	Name    string

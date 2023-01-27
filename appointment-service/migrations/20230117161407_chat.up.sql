@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS events (
     CONSTRAINT fk_doctors
         FOREIGN KEY (doctor_id)
             REFERENCES doctors(id)
+                ON DELETE CASCADE
 );
 
 CREATE INDEX "events_client_id"
