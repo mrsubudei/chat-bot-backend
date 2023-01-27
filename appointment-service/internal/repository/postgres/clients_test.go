@@ -82,7 +82,8 @@ func TestFetchdoctors(t *testing.T) {
 		AddRow(2, "Duhast", "Vicheslavovich", "87776542151")
 
 	query := regexp.QuoteMeta(`
-		SELECT * FROM doctors 
+		SELECT doctor_id, name, surname, phone
+		FROM doctors
 		ORDER BY id
 	`)
 
@@ -229,7 +230,7 @@ func TestFetchReservedEventsByDoctor(t *testing.T) {
 		AddRow(3, 5, doctorId, now.Add(time.Hour*4), now.Add(time.Hour*5))
 
 	query := regexp.QuoteMeta(`
-		SELECT * FROM events
+		SELECT id, client_id, doctor_id, starts_at, ends_at
 		FROM events
 		WHERE doctor_id = $1 AND starts_at > now() AND client_id >= 1
 		ORDER BY id
@@ -257,7 +258,8 @@ func TestFetchReservedEventsByClient(t *testing.T) {
 		AddRow(3, clientId, 6, now.Add(time.Hour*4), now.Add(time.Hour*5))
 
 	query := regexp.QuoteMeta(`
-		SELECT * FROM events
+		SELECT id, client_id, doctor_id, starts_at, ends_at 
+		FROM events
 		WHERE client_id = $1 AND starts_at > now()
 		ORDER BY id
 	`)
@@ -284,7 +286,8 @@ func TestFetchAllEventsByClient(t *testing.T) {
 		AddRow(3, clientId, 6, now.Add(time.Hour*4), now.Add(time.Hour*5))
 
 	query := regexp.QuoteMeta(`
-		SELECT * FROM events
+		SELECT id, client_id, doctor_id, starts_at, ends_at 
+		FROM events
 		WHERE client_id = $1
 		ORDER BY id
 	`)

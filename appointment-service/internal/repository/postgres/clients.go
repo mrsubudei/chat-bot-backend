@@ -53,7 +53,8 @@ func (cr *ClientsRepo) DeleteDoctor(ctx context.Context, id int32) error {
 func (cr *ClientsRepo) FetchDoctors(ctx context.Context) ([]entity.Doctor, error) {
 	doctors := []entity.Doctor{}
 	stmt, err := cr.DB.PrepareContext(ctx, `
-		SELECT * FROM doctors
+		SELECT doctor_id, name, surname, phone
+		FROM doctors
 		ORDER BY id
 	`)
 	if err != nil {
@@ -140,7 +141,7 @@ func (cr *ClientsRepo) checkConstraintViolation(ctx context.Context, tx *sql.Tx,
 			return fmt.Errorf("ClientsRepo - checkViolation - Scan: %w", err)
 		}
 		if exist {
-			return entity.ErrUniqueDateViolation
+			return entity.ErrDateAlreadyExist
 		}
 	}
 	return nil
@@ -179,7 +180,7 @@ func (cr *ClientsRepo) FetchReservedEventsByDoctor(ctx context.Context,
 	doctorId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
-		SELECT * FROM events
+		SELECT id, client_id, doctor_id, starts_at, ends_at
 		FROM events
 		WHERE doctor_id = $1 AND starts_at > now() AND client_id >= 1
 		ORDER BY id
@@ -209,7 +210,8 @@ func (cr *ClientsRepo) FetchReservedEventsByClient(ctx context.Context,
 	clientId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
-		SELECT * FROM events
+		SELECT id, client_id, doctor_id, starts_at, ends_at 
+		FROM events
 		WHERE client_id = $1 AND starts_at > now()
 		ORDER BY id
 	`, clientId)
@@ -238,7 +240,8 @@ func (cr *ClientsRepo) FetchAllEventsByClient(ctx context.Context,
 	clientId int32) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := cr.DB.QueryContext(ctx, `
-		SELECT * FROM events
+		SELECT id, client_id, doctor_id, starts_at, ends_at 
+		FROM events
 		WHERE client_id = $1
 		ORDER BY id
 	`, clientId)

@@ -1,4 +1,4 @@
-module github.com/mrsubudei/chat-bot-backend/gateway
+module github.com/mrsubudei/chat-bot-backend/gateway-service
 
 go 1.19
 
