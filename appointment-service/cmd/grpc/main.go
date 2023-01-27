@@ -45,7 +45,7 @@ func (as *AppointmentServer) CreateSchedule(ctx context.Context,
 		DoctorIds:     in.Value.DoctorId,
 	}
 
-	err := as.service.CreateSchedule(ctx, schedule)
+	_, err := as.service.CreateSchedule(ctx, schedule)
 	if err != nil {
 		return &pb.ScheduleResponse{}, err
 	}

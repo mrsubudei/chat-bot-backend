@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	config "github.com/mrsubudei/chat-bot-backend/appointment-service/config"
-	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
 	p "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository/postgres"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/service"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
@@ -40,18 +39,18 @@ func Run(cfg *config.Config) {
 	// schedule := entity.Schedule{
 
 	// }
-	event := entity.Event{
-		Id:       834,
-		ClientId: 77,
-	}
+	// event := entity.Event{
+	// 	Id:       834,
+	// 	ClientId: 77,
+	// }
 	service := service.NewEventsService(repo)
-	err = service.RegisterToEvent(context.Background(), event)
+	d, err := service.GetOpenEventsByDoctor(context.Background(), int32(9))
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	// for i := 0; i < len(d); i++ {
-	// fmt.Println(d)
+	fmt.Printf("%#v\n", d[0])
 	// }
 
 	/*

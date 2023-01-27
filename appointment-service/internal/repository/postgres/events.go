@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
 )
@@ -36,21 +37,47 @@ func (er *EventsRepo) StoreDoctor(ctx context.Context, doctor entity.Doctor) err
 
 func (er *EventsRepo) GetDoctor(ctx context.Context, doctorId int32) (entity.Doctor, error) {
 	doctor := entity.Doctor{}
+	var err error
+
+	tx, err := er.DB.Begin()
+	if err != nil {
+		return doctor, fmt.Errorf("EventsRepo - GetDoctor - Begin: %w", err)
+	}
+	defer tx.Rollback()
+
+	doctor, err = er.getDoctorById(ctx, tx, doctorId)
+	if errors.Is(err, entity.ErrDoctorDoesNotExist) {
+		return doctor, err
+	} else if err != nil {
+		return doctor, fmt.Errorf("EventsRepo - GetDoctor - %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return doctor, fmt.Errorf("EventsRepo - GetDoctor - Commit: %w", err)
+	}
+
+	return doctor, nil
+}
+
+func (er *EventsRepo) getDoctorById(ctx context.Context, tx *sql.Tx,
+	doctorId int32) (entity.Doctor, error) {
+
+	doctor := entity.Doctor{}
 	query := `
 		SELECT id, name, surname, phone
 		FROM doctors
 		WHERE id = $1
 	`
 
-	res := er.DB.QueryRowContext(ctx, query, doctorId)
+	res := tx.QueryRowContext(ctx, query, doctorId)
 
 	var phone sql.NullString
 	err := res.Scan(&doctor.Id, &doctor.Name, &doctor.Surname, &phone)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return doctor, entity.ErrEntityDoesNotExist
+		return doctor, entity.ErrDoctorDoesNotExist
 	} else if err != nil {
-		return doctor, fmt.Errorf("EventsRepo - GetDoctor - Scan: %w", err)
+		return doctor, fmt.Errorf("getDoctorById - Scan: %w", err)
 	}
 	doctor.Phone = phone.String
 
@@ -66,9 +93,11 @@ func (er *EventsRepo) UpdateDoctor(ctx context.Context,
 	}
 	defer tx.Rollback()
 
-	exist, err := er.GetDoctor(ctx, doctor.Id)
-	if err != nil {
-		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - GetDoctor #1 : %w", err)
+	exist, err := er.getDoctorById(ctx, tx, doctor.Id)
+	if errors.Is(err, entity.ErrDoctorDoesNotExist) {
+		return doctor, err
+	} else if err != nil {
+		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - get#1 - %w", err)
 	}
 
 	if doctor.Name == "" {
@@ -98,9 +127,9 @@ func (er *EventsRepo) UpdateDoctor(ctx context.Context,
 		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - RowsAffected: %w", err)
 	}
 
-	updated, err := er.GetDoctor(ctx, doctor.Id)
+	updated, err := er.getDoctorById(ctx, tx, doctor.Id)
 	if err != nil {
-		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - GetDoctor #2: %w", err)
+		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - get#2 - %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -158,68 +187,77 @@ func (er *EventsRepo) FetchDoctors(ctx context.Context) ([]entity.Doctor, error)
 	return doctors, nil
 }
 
-func (er *EventsRepo) StoreSchedule(ctx context.Context, events []entity.Event) error {
+func (er *EventsRepo) StoreSchedule(ctx context.Context, events []entity.Event) (time.Time, error) {
+	var date time.Time
+
 	tx, err := er.DB.Begin()
 	if err != nil {
-		return fmt.Errorf("EventsRepo - StoreSchedule - Begin: %w", err)
+		return date, fmt.Errorf("EventsRepo - StoreSchedule - Begin: %w", err)
 	}
 	defer tx.Rollback()
 
-	if err := er.checkConstraintViolation(ctx, tx, events); err != nil {
-		return err
+	if exist, err := er.checkConstraintViolation(ctx, tx, events); err != nil {
+		if errors.Is(err, entity.ErrEventAlreadyExists) {
+			return exist, err
+		}
+		return date, fmt.Errorf("EventsRepo - StoreSchedule - %w", err)
 	}
 
-	stmt, err := er.DB.PrepareContext(ctx, `
+	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO events(doctor_id, starts_at, ends_at)
 		VALUES($1, $2, $3)
 	`)
 	if err != nil {
-		return fmt.Errorf("EventsRepo - StoreSchedule - PrepareContext: %w", err)
+		return date, fmt.Errorf("EventsRepo - StoreSchedule - PrepareContext: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, v := range events {
 		res, err := stmt.ExecContext(ctx, v.DoctorId, v.StartsAt, v.EndsAt)
 		if err != nil {
-			return fmt.Errorf("EventsRepo - StoreSchedule - ExecContext: %w", err)
+			return date, fmt.Errorf("EventsRepo - StoreSchedule - ExecContext: %w", err)
 		}
 		affected, err := res.RowsAffected()
 		if affected != 1 || err != nil {
-			return fmt.Errorf("EventsRepo - StoreSchedule - RowsAffected: %w", err)
+			return date, fmt.Errorf("EventsRepo - StoreSchedule - RowsAffected: %w", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("EventsRepo - StoreSchedule - Commit: %w", err)
+		return date, fmt.Errorf("EventsRepo - StoreSchedule - Commit: %w", err)
 	}
 
-	return nil
+	return date, nil
 }
 
-func (er *EventsRepo) checkConstraintViolation(ctx context.Context, tx *sql.Tx, events []entity.Event) error {
+func (er *EventsRepo) checkConstraintViolation(ctx context.Context,
+	tx *sql.Tx, events []entity.Event) (time.Time, error) {
+
+	var date time.Time
+
 	stmt, err := er.DB.PrepareContext(ctx, `
 		SELECT EXISTS (SELECT 1 FROM events WHERE date(starts_at) = $1)
 	`)
 	if err != nil {
-		return fmt.Errorf("EventsRepo - checkViolation - PrepareContext: %w", err)
+		return date, fmt.Errorf("checkConstraintViolation - PrepareContext: %w", err)
 	}
 	defer stmt.Close()
 	for _, v := range events {
 		row := stmt.QueryRowContext(ctx, v.StartsAt)
 		if err != nil {
-			return fmt.Errorf("EventsRepo - checkViolation - QueryContext: %w", err)
+			return date, fmt.Errorf("checkConstraintViolation - QueryContext: %w", err)
 		}
 		exist := false
 		err = row.Scan(&exist)
 		if err != nil {
-			return fmt.Errorf("EventsRepo - checkViolation - Scan: %w", err)
+			return date, fmt.Errorf("checkConstraintViolation - Scan: %w", err)
 		}
 		if exist {
-			return entity.ErrDateAlreadyExists
+			return v.StartsAt, entity.ErrEventAlreadyExists
 		}
 	}
-	return nil
+	return date, nil
 }
 
 func (er *EventsRepo) FetchOpenEventsByDoctor(ctx context.Context,
@@ -232,7 +270,7 @@ func (er *EventsRepo) FetchOpenEventsByDoctor(ctx context.Context,
 		ORDER BY id
 	`, doctorId)
 	if err != nil {
-		return nil, fmt.Errorf("EventsRepo - FetchEventsByDoctor - QueryContext: %w", err)
+		return nil, fmt.Errorf("EventsRepo - FetchOpenEventsByDoctor - QueryContext: %w", err)
 	}
 	defer rows.Close()
 
@@ -240,7 +278,7 @@ func (er *EventsRepo) FetchOpenEventsByDoctor(ctx context.Context,
 		event := entity.Event{}
 		err = rows.Scan(&event.Id, &event.DoctorId, &event.StartsAt, &event.EndsAt)
 		if err != nil {
-			return nil, fmt.Errorf("EventsRepo - FetchEventsByDoctor - Scan: %w", err)
+			return nil, fmt.Errorf("EventsRepo - FetchOpenEventsByDoctor - Scan: %w", err)
 		}
 
 		events = append(events, event)
@@ -259,7 +297,7 @@ func (er *EventsRepo) FetchReservedEventsByDoctor(ctx context.Context,
 		ORDER BY id
 	`, doctorId)
 	if err != nil {
-		return nil, fmt.Errorf("EventsRepo - FetchEventsByDoctor - QueryContext: %w", err)
+		return nil, fmt.Errorf("EventsRepo - FetchReservedEventsByDoctor - QueryContext: %w", err)
 	}
 	defer rows.Close()
 
@@ -268,7 +306,7 @@ func (er *EventsRepo) FetchReservedEventsByDoctor(ctx context.Context,
 		err = rows.Scan(&event.Id, &event.ClientId, &event.DoctorId,
 			&event.StartsAt, &event.EndsAt)
 		if err != nil {
-			return nil, fmt.Errorf("EventsRepo - FetchEventsByDoctor - Scan: %w", err)
+			return nil, fmt.Errorf("EventsRepo - FetchReservedEventsByDoctor - Scan: %w", err)
 		}
 
 		events = append(events, event)
@@ -333,7 +371,7 @@ func (er *EventsRepo) FetchAllEventsByClient(ctx context.Context,
 	return events, nil
 }
 
-func (er *EventsRepo) GetEventById(ctx context.Context, eventId int32) (entity.Event, error) {
+func (er *EventsRepo) getEventById(ctx context.Context, tx *sql.Tx, eventId int32) (entity.Event, error) {
 	event := entity.Event{}
 	query := `
 		SELECT id, client_id, doctor_id, starts_at, ends_at
@@ -341,14 +379,14 @@ func (er *EventsRepo) GetEventById(ctx context.Context, eventId int32) (entity.E
 		WHERE id = $1
 	`
 
-	res := er.DB.QueryRowContext(ctx, query, eventId)
+	res := tx.QueryRowContext(ctx, query, eventId)
 	var clientId sql.NullInt32
 
 	err := res.Scan(&event.Id, &clientId, &event.DoctorId, &event.StartsAt, &event.EndsAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return event, entity.ErrEntityDoesNotExist
+		return event, entity.ErrEventDoesNotExist
 	} else if err != nil {
-		return event, fmt.Errorf("EventsRepo - GetEventById - Scan: %w", err)
+		return event, fmt.Errorf("getEventById - Scan: %w", err)
 	}
 	event.ClientId = clientId.Int32
 
@@ -356,56 +394,90 @@ func (er *EventsRepo) GetEventById(ctx context.Context, eventId int32) (entity.E
 }
 
 func (er *EventsRepo) UpdateEvent(ctx context.Context, event entity.Event) (entity.Event, error) {
+	evnt := entity.Event{}
 	tx, err := er.DB.Begin()
 	if err != nil {
-		return event, fmt.Errorf("EventsRepo - UpdateEvent - Begin: %w", err)
+		return evnt, fmt.Errorf("EventsRepo - UpdateEvent - Begin: %w", err)
 	}
 	defer tx.Rollback()
 
-	query1 := `
-		UPDATE events
-		SET client_id = NULL
-		WHERE id = $1
-	`
+	exist, err := er.getEventById(ctx, tx, event.Id)
+	if errors.Is(err, entity.ErrEventDoesNotExist) {
+		return evnt, err
+	} else if err != nil {
+		return evnt, fmt.Errorf("EventsRepo - UpdateEvent - get#1 - %w", err)
+	}
 
-	query2 := `
+	if exist.ClientId != 0 {
+		return evnt, entity.ErrEventAlreadyReserved
+	}
+
+	query := `
 		UPDATE events
 		SET client_id = $1
 		WHERE id = $2
 	`
 
-	switch event.ClientId {
-	case 0:
-		res, err := tx.ExecContext(ctx, query1, event.Id)
-		if err != nil {
-			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #0 ExecContext: %w", err)
-		}
-
-		rows, err := res.RowsAffected()
-		if rows != 1 || err != nil {
-			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #0 RowsAffected: %w", err)
-		}
-	default:
-		res, err := tx.ExecContext(ctx, query2, event.ClientId, event.Id)
-		if err != nil {
-			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #default ExecContext: %w", err)
-		}
-
-		rows, err := res.RowsAffected()
-		if rows != 1 || err != nil {
-			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #default RowsAffected: %w", err)
-		}
+	res, err := tx.ExecContext(ctx, query, event.ClientId, event.Id)
+	if err != nil {
+		return evnt, fmt.Errorf("EventsRepo - UpdateEvent - ExecContext: %w", err)
 	}
 
-	updated, err := er.GetEventById(ctx, event.Id)
+	rows, err := res.RowsAffected()
+	if rows != 1 || err != nil {
+		return evnt, fmt.Errorf("EventsRepo - UpdateEvent - RowsAffected: %w", err)
+	}
+
+	updated, err := er.getEventById(ctx, tx, event.Id)
 	if err != nil {
-		return event, fmt.Errorf("EventsRepo - UpdateEvent - %w", err)
+		return updated, fmt.Errorf("EventsRepo - UpdateEvent - get#2 - %w", err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return event, fmt.Errorf("EventsRepo - UpdateEvent - Commit: %w", err)
+		return evnt, fmt.Errorf("EventsRepo - UpdateEvent - Commit: %w", err)
 	}
 
-	return updated, nil
+	return evnt, nil
+}
+
+func (er *EventsRepo) ClearEvent(ctx context.Context, event entity.Event) error {
+	tx, err := er.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("EventsRepo - ClearEvent - Begin: %w", err)
+	}
+	defer tx.Rollback()
+
+	exist, err := er.getEventById(ctx, tx, event.Id)
+	if errors.Is(err, entity.ErrEventDoesNotExist) {
+		return err
+	} else if err != nil {
+		return fmt.Errorf("EventsRepo - ClearEvent - %w", err)
+	}
+	if exist.ClientId == 0 {
+		return entity.ErrEventIsNotReserved
+	}
+
+	query := `
+		UPDATE events
+		SET client_id = NULL
+		WHERE id = $1
+	`
+
+	res, err := tx.ExecContext(ctx, query, event.Id)
+	if err != nil {
+		return fmt.Errorf("EventsRepo - ClearEvent - ExecContext: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if rows != 1 || err != nil {
+		return fmt.Errorf("EventsRepo - ClearEvent - RowsAffected: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("EventsRepo - ClearEvent - Commit: %w", err)
+	}
+
+	return nil
 }

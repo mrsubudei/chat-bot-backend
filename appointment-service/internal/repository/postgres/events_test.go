@@ -59,13 +59,44 @@ func TestGetDoctor(t *testing.T) {
 		WHERE id = $1
 	`)
 
+	mock.ExpectBegin()
 	mock.ExpectQuery(query).WithArgs(doctorId).WillReturnRows(rows)
+	mock.ExpectCommit()
 
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
 	doctors, err := repo.GetDoctor(ctx, doctorId)
 	assert.NoError(t, err)
 	assert.NotNil(t, doctors)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGetDoctorShouldRollback(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	doctorId := int32(3)
+
+	query := regexp.QuoteMeta(`
+		SELECT id, name, surname, phone
+		FROM doctors
+		WHERE id = $1
+	`)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(query).WithArgs(doctorId).WillReturnError(fmt.Errorf("some"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+	if _, err := repo.GetDoctor(ctx, doctorId); err == nil {
+		t.Fatal("expected error")
+	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("there were unfulfilled expectations: %s", err)
@@ -89,22 +120,22 @@ func TestUpdateDoctor(t *testing.T) {
 	}
 	rows2 := sqlmock.NewRows([]string{"id", "name", "surname", "phone"}).
 		AddRow(doctorId, "Duhast", "Vicheslavovich", "8-777-564-87-48")
-	query1 := regexp.QuoteMeta(`
+	getQuery := regexp.QuoteMeta(`
 		SELECT id, name, surname, phone
 		FROM doctors
 		WHERE id = $1
 	`)
-	query2 := regexp.QuoteMeta(`
+	updateQuery := regexp.QuoteMeta(`
 		UPDATE doctors
 		SET name = $1, surname = $2, phone = $3
 		WHERE id = $4
 	`)
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(query1).WithArgs(doctorId).WillReturnRows(rows)
-	mock.ExpectExec(query2).WithArgs(doctor.Name, doctor.Surname, doctor.Phone, doctor.Id).
+	mock.ExpectQuery(getQuery).WithArgs(doctorId).WillReturnRows(rows)
+	mock.ExpectExec(updateQuery).WithArgs(doctor.Name, doctor.Surname, doctor.Phone, doctor.Id).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectQuery(query1).WithArgs(doctorId).WillReturnRows(rows2)
+	mock.ExpectQuery(getQuery).WithArgs(doctorId).WillReturnRows(rows2)
 	mock.ExpectCommit()
 
 	ctx := context.Background()
@@ -135,20 +166,20 @@ func TestUpdateDoctorShouldRollback(t *testing.T) {
 		Surname: "Vicheslavovich",
 		Phone:   "8-777-564-87-48",
 	}
-	query1 := regexp.QuoteMeta(`
+	getQuery := regexp.QuoteMeta(`
 		SELECT id, name, surname, phone
 		FROM doctors
 		WHERE id = $1
 	`)
-	query2 := regexp.QuoteMeta(`
+	updateQuery := regexp.QuoteMeta(`
 		UPDATE doctors
 		SET name = $1, surname = $2, phone = $3
 		WHERE id = $4
 	`)
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(query1).WithArgs(doctorId).WillReturnRows(rows)
-	mock.ExpectExec(query2).WithArgs(doctor.Name, doctor.Surname, doctor.Phone, doctor.Id).
+	mock.ExpectQuery(getQuery).WithArgs(doctorId).WillReturnRows(rows)
+	mock.ExpectExec(updateQuery).WithArgs(doctor.Name, doctor.Surname, doctor.Phone, doctor.Id).
 		WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
@@ -237,11 +268,11 @@ func TestStoreSchedule(t *testing.T) {
 			EndsAt:   now.Add(time.Second),
 		},
 	}
-	query1 := regexp.QuoteMeta(`
+	getQuery := regexp.QuoteMeta(`
 		SELECT EXISTS (SELECT 1 FROM events WHERE date(starts_at) = $1)
 	`)
 
-	query2 := regexp.QuoteMeta(`
+	insertQuery := regexp.QuoteMeta(`
 		INSERT INTO events(doctor_id, starts_at, ends_at)
 		VALUES($1, $2, $3)
 	`)
@@ -251,15 +282,15 @@ func TestStoreSchedule(t *testing.T) {
 	ctx := context.Background()
 
 	mock.ExpectBegin()
-	prep := mock.ExpectPrepare(query1)
+	prep := mock.ExpectPrepare(getQuery)
 	prep.ExpectQuery().WithArgs().WillReturnRows(rows)
-	prep = mock.ExpectPrepare(query2)
+	prep = mock.ExpectPrepare(insertQuery)
 	prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
 		WillReturnResult(driver.RowsAffected(1))
 	mock.ExpectCommit()
 
 	repo := p.NewEventsRepo(db)
-	if err = repo.StoreSchedule(ctx, events); err != nil {
+	if _, err := repo.StoreSchedule(ctx, events); err != nil {
 		t.Fatalf("error was not expected: %s", err)
 	}
 
@@ -282,29 +313,18 @@ func TestStoreScheduleShouldRollback(t *testing.T) {
 			EndsAt:   now.Add(time.Second),
 		},
 	}
-	query1 := regexp.QuoteMeta(`
+	query := regexp.QuoteMeta(`
 		SELECT EXISTS (SELECT 1 FROM events WHERE date(starts_at) = $1)
 	`)
-
-	query2 := regexp.QuoteMeta(`
-		INSERT INTO events(doctor_id, starts_at, ends_at)
-		VALUES($1, $2, $3)
-	`)
-
-	rows := sqlmock.NewRows([]string{"exists"}).
-		AddRow(false)
 
 	ctx := context.Background()
 
 	mock.ExpectBegin()
-	prep := mock.ExpectPrepare(query1)
-	prep.ExpectQuery().WithArgs().WillReturnRows(rows)
-	prep = mock.ExpectPrepare(query2)
-	prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
-		WillReturnError(fmt.Errorf("some error"))
+	prep := mock.ExpectPrepare(query)
+	prep.ExpectQuery().WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 	repo := p.NewEventsRepo(db)
-	if err = repo.StoreSchedule(ctx, events); err == nil {
+	if _, err = repo.StoreSchedule(ctx, events); err == nil {
 		t.Fatal("exptected error")
 	}
 
@@ -442,51 +462,14 @@ func TestFetchAllEventsByClient(t *testing.T) {
 	}
 }
 
-func TestGetEventById(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-
-	eventId := int32(3)
-	now := time.Now()
-	rows := sqlmock.NewRows([]string{"id", "client_id", "doctor_id", "starts_at", "ends_at"}).
-		AddRow(5, eventId, 6, now.Add(time.Hour*10), now.Add(time.Hour*11))
-
-	query := regexp.QuoteMeta(`
-		SELECT id, client_id, doctor_id, starts_at, ends_at
-		FROM events
-		WHERE id = $1
-	`)
-
-	mock.ExpectQuery(query).WithArgs(eventId).WillReturnRows(rows)
-
-	ctx := context.Background()
-	repo := p.NewEventsRepo(db)
-	event, err := repo.GetEventById(ctx, eventId)
-	assert.NoError(t, err)
-	assert.NotNil(t, event)
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("there were unfulfilled expectations: %s", err)
-	}
-}
-
 func TestUpdateEvent(t *testing.T) {
-
-	query1 := regexp.QuoteMeta(`
-		UPDATE events
-		SET client_id = NULL
-		WHERE id = $1
-	`)
-
-	query2 := regexp.QuoteMeta(`
+	updateQuery := regexp.QuoteMeta(`
 		UPDATE events
 		SET client_id = $1
 		WHERE id = $2
 	`)
 
-	query3 := regexp.QuoteMeta(`
+	getQuery := regexp.QuoteMeta(`
 		SELECT id, client_id, doctor_id, starts_at, ends_at
 		FROM events
 		WHERE id = $1
@@ -497,78 +480,9 @@ func TestUpdateEvent(t *testing.T) {
 
 	now := time.Now()
 	rows1 := sqlmock.NewRows([]string{"id", "client_id", "doctor_id", "starts_at", "ends_at"}).
-		AddRow(eventId, clientId, 6, now.Add(time.Hour*10), now.Add(time.Hour*11))
+		AddRow(eventId, 0, 6, now.Add(time.Hour*10), now.Add(time.Hour*11))
 	rows2 := sqlmock.NewRows([]string{"id", "client_id", "doctor_id", "starts_at", "ends_at"}).
-		AddRow(eventId, 0, 6, now.Add(time.Hour*12), now.Add(time.Hour*13))
-
-	event1 := entity.Event{
-		Id: eventId,
-	}
-
-	event2 := entity.Event{
-		Id:       eventId,
-		ClientId: clientId,
-	}
-
-	t.Run("OK remove client id", func(t *testing.T) {
-		db, mock, err := sqlmock.New()
-		if err != nil {
-			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-		}
-		mock.ExpectBegin()
-		mock.ExpectExec(query1).WithArgs(event1.Id).
-			WillReturnResult(sqlmock.NewResult(1, 1))
-		mock.ExpectQuery(query3).WithArgs(eventId).WillReturnRows(rows2)
-		mock.ExpectCommit()
-
-		ctx := context.Background()
-		repo := p.NewEventsRepo(db)
-		updated, err := repo.UpdateEvent(ctx, event1)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, updated)
-
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Fatalf("there were unfulfilled expectations: %s", err)
-		}
-	})
-
-	t.Run("OK set client id", func(t *testing.T) {
-		db, mock, err := sqlmock.New()
-		if err != nil {
-			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-		}
-		mock.ExpectBegin()
-		mock.ExpectExec(query2).WithArgs(event2.ClientId, event2.Id).
-			WillReturnResult(sqlmock.NewResult(1, 1))
-		mock.ExpectQuery(query3).WithArgs(eventId).WillReturnRows(rows1)
-		mock.ExpectCommit()
-
-		ctx := context.Background()
-		repo := p.NewEventsRepo(db)
-
-		updated, err := repo.UpdateEvent(ctx, event2)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, updated)
-
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Fatalf("there were unfulfilled expectations: %s", err)
-		}
-
-	})
-}
-
-func TestUpdateEventShouldRollback(t *testing.T) {
-
-	query := regexp.QuoteMeta(`
-		UPDATE events
-		SET client_id = $1
-		WHERE id = $2
-	`)
-
-	eventId := int32(1)
-	clientId := int32(3)
+		AddRow(eventId, clientId, 6, now.Add(time.Hour*10), now.Add(time.Hour*11))
 
 	event := entity.Event{
 		Id:       eventId,
@@ -580,13 +494,46 @@ func TestUpdateEventShouldRollback(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	mock.ExpectBegin()
-	mock.ExpectExec(query).WithArgs(clientId, eventId).
-		WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectQuery(getQuery).WithArgs(eventId).WillReturnRows(rows1)
+	mock.ExpectExec(updateQuery).WithArgs(clientId, eventId).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery(getQuery).WithArgs(eventId).WillReturnRows(rows2)
+	mock.ExpectCommit()
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+	updated, err := repo.UpdateEvent(ctx, event)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, updated)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestUpdateEventSouldRollback(t *testing.T) {
+	query := regexp.QuoteMeta(`
+		SELECT id, client_id, doctor_id, starts_at, ends_at
+		FROM events
+		WHERE id = $1
+	`)
+
+	event := entity.Event{
+		Id:       int32(1),
+		ClientId: int32(3),
+	}
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	mock.ExpectBegin()
+	mock.ExpectQuery(query).WithArgs(event.Id).WillReturnError(entity.ErrEventDoesNotExist)
 	mock.ExpectRollback()
 
 	ctx := context.Background()
 	repo := p.NewEventsRepo(db)
-
 	if _, err := repo.UpdateEvent(ctx, event); err == nil {
 		t.Fatal("expected error")
 	}
@@ -594,5 +541,79 @@ func TestUpdateEventShouldRollback(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("there were unfulfilled expectations: %s", err)
 	}
+}
 
+func TestClearEvent(t *testing.T) {
+	updateQuery := regexp.QuoteMeta(`
+		UPDATE events
+		SET client_id = NULL
+		WHERE id = $1
+	`)
+
+	getQuery := regexp.QuoteMeta(`
+		SELECT id, client_id, doctor_id, starts_at, ends_at
+		FROM events
+		WHERE id = $1
+	`)
+
+	eventId := int32(1)
+	clientId := int32(3)
+
+	now := time.Now()
+	rows := sqlmock.NewRows([]string{"id", "client_id", "doctor_id", "starts_at", "ends_at"}).
+		AddRow(eventId, clientId, 6, now.Add(time.Hour*10), now.Add(time.Hour*11))
+
+	event := entity.Event{
+		Id: eventId,
+	}
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	mock.ExpectBegin()
+	mock.ExpectQuery(getQuery).WithArgs(eventId).WillReturnRows(rows)
+	mock.ExpectExec(updateQuery).WithArgs(eventId).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+	if err = repo.ClearEvent(ctx, event); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestClearEventShouldRollback(t *testing.T) {
+	query := regexp.QuoteMeta(`
+		SELECT id, client_id, doctor_id, starts_at, ends_at
+		FROM events
+		WHERE id = $1
+	`)
+
+	event := entity.Event{
+		Id: int32(1),
+	}
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	mock.ExpectBegin()
+	mock.ExpectQuery(query).WithArgs(event.Id).WillReturnError(fmt.Errorf("some error"))
+	mock.ExpectRollback()
+
+	ctx := context.Background()
+	repo := p.NewEventsRepo(db)
+	if err = repo.ClearEvent(ctx, event); err == nil {
+		t.Fatal("expected error")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("there were unfulfilled expectations: %s", err)
+	}
 }

@@ -23,7 +23,7 @@ func (es *EventsService) CreateDoctor(ctx context.Context, doctor entity.Doctor)
 	err := es.repo.StoreDoctor(ctx, doctor)
 	if err != nil {
 		if strings.Contains(err.Error(), DuplicateErrMsg) {
-			return entity.ErrEntityAlreadyExists
+			return entity.ErrDoctorAlreadyExists
 		}
 		return fmt.Errorf("EventsService - CreateDoctor - StoreDoctor: %w", err)
 	}
@@ -33,7 +33,7 @@ func (es *EventsService) CreateDoctor(ctx context.Context, doctor entity.Doctor)
 func (es *EventsService) GetDoctor(ctx context.Context, doctorId int32) (entity.Doctor, error) {
 	doctor, err := es.repo.GetDoctor(ctx, doctorId)
 	if err != nil {
-		if errors.Is(err, entity.ErrEntityDoesNotExist) {
+		if errors.Is(err, entity.ErrDoctorDoesNotExist) {
 			return doctor, err
 		}
 		return doctor, fmt.Errorf("EventsService - GetDoctor: %w", err)
@@ -46,7 +46,7 @@ func (es *EventsService) UpdateDoctor(ctx context.Context,
 
 	updated, err := es.repo.UpdateDoctor(ctx, doctor)
 	if err != nil {
-		if errors.Is(err, entity.ErrEntityDoesNotExist) {
+		if errors.Is(err, entity.ErrDoctorDoesNotExist) {
 			return doctor, err
 		}
 		return doctor, fmt.Errorf("EventsService - UpdateDoctor - GetDoctor: %w", err)
@@ -59,7 +59,7 @@ func (es *EventsService) DeleteDoctor(ctx context.Context, doctorId int32) error
 	err := es.repo.DeleteDoctor(ctx, doctorId)
 	if err != nil {
 		if strings.Contains(err.Error(), NoRowsAffected) {
-			return entity.ErrEntityDoesNotExist
+			return entity.ErrEventDoesNotExist
 		}
 		return fmt.Errorf("EventsService - DeleteDoctor - DeleteDoctor: %w", err)
 	}
@@ -75,37 +75,42 @@ func (es *EventsService) GetAllDoctors(ctx context.Context) ([]entity.Doctor, er
 	return doctors, nil
 }
 
-func (es *EventsService) CreateSchedule(ctx context.Context, schedule entity.Schedule) error {
+func (es *EventsService) CreateSchedule(ctx context.Context,
+	schedule entity.Schedule) (time.Time, error) {
+
 	dayEvents := []entity.Event{}
+	var err error
+	var existEvent time.Time
+
 	first := schedule.FirstDay
 	last := schedule.LastDay.AddDate(0, 0, 1)
 	increase := time.Duration(int(schedule.EventDuration) * int(time.Minute))
 
-	startTime := schedule.StartTime.Format(DateFormat)[11:]
-	endTime := schedule.EndTime.Format(DateFormat)[11:]
-	startBreak := schedule.StartBreak.Format(DateFormat)[11:]
-	endBreak := schedule.EndBreak.Format(DateFormat)[11:]
+	startTime := schedule.StartTime.Format(DateAndTimeFormat)[11:]
+	endTime := schedule.EndTime.Format(DateAndTimeFormat)[11:]
+	startBreak := schedule.StartBreak.Format(DateAndTimeFormat)[11:]
+	endBreak := schedule.EndBreak.Format(DateAndTimeFormat)[11:]
 
 	for first.Before(last) {
-		date := first.Format(DateFormat)[:11]
-		starts, err := time.Parse(DateFormat, date+startTime)
+		date := first.Format(DateAndTimeFormat)[:11]
+		starts, err := time.Parse(DateAndTimeFormat, date+startTime)
 		if err != nil {
-			return fmt.Errorf("EventsService - CreateSchedule - Parse #1: %w", err)
+			return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse #1: %w", err)
 		}
 
-		ends, err := time.Parse(DateFormat, date+endTime)
+		ends, err := time.Parse(DateAndTimeFormat, date+endTime)
 		if err != nil {
-			return fmt.Errorf("EventsService - CreateSchedule - Parse #2: %w", err)
+			return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse #2: %w", err)
 		}
 
-		startsBreak, err := time.Parse(DateFormat, date+startBreak)
+		startsBreak, err := time.Parse(DateAndTimeFormat, date+startBreak)
 		if err != nil {
-			return fmt.Errorf("EventsService - CreateSchedule - Parse #3: %w", err)
+			return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse #3: %w", err)
 		}
 
-		endsBreak, err := time.Parse(DateFormat, date+endBreak)
+		endsBreak, err := time.Parse(DateAndTimeFormat, date+endBreak)
 		if err != nil {
-			return fmt.Errorf("EventsService - CreateSchedule - Parse #4: %w", err)
+			return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse #4: %w", err)
 		}
 
 		was := true
@@ -128,12 +133,20 @@ func (es *EventsService) CreateSchedule(ctx context.Context, schedule entity.Sch
 		first = first.AddDate(0, 0, 1)
 	}
 
-	err := es.repo.StoreSchedule(ctx, dayEvents)
+	existEvent, err = es.repo.StoreSchedule(ctx, dayEvents)
 	if err != nil {
-		return fmt.Errorf("EventsService - CreateSchedule - StoreSchedule: %w", err)
+		if errors.Is(err, entity.ErrEventAlreadyExists) {
+			d := existEvent.Format(DateFormat)
+			parsed, err := time.Parse(DateFormat, d)
+			if err != nil {
+				return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse: %w", err)
+			}
+			return parsed, nil
+		}
+		return existEvent, fmt.Errorf("EventsService - CreateSchedule - StoreSchedule: %w", err)
 	}
 
-	return nil
+	return existEvent, nil
 }
 
 func (es *EventsService) GetOpenEventsByDoctor(ctx context.Context,
@@ -180,43 +193,43 @@ func (es *EventsService) GetAllEventsByClient(ctx context.Context,
 	return events, nil
 }
 
-func (es *EventsService) GetEvent(ctx context.Context, eventId int32) (entity.Event, error) {
+// func (es *EventsService) GetEvent(ctx context.Context, eventId int32) (entity.Event, error) {
 
-	event, err := es.repo.GetEventById(ctx, eventId)
-	if err != nil {
-		if errors.Is(err, entity.ErrEntityDoesNotExist) {
-			return event, err
-		}
-		return event, fmt.Errorf("EventsService - GetEvent: %w", err)
-	}
+// 	event, err := es.repo.GetEventById(ctx, eventId)
+// 	if err != nil {
+// 		if errors.Is(err, entity.ErrEntityDoesNotExist) {
+// 			return event, err
+// 		}
+// 		return event, fmt.Errorf("EventsService - GetEvent: %w", err)
+// 	}
 
-	return event, nil
-}
+// 	return event, nil
+// }
 
-func (es *EventsService) RegisterToEvent(ctx context.Context,
-	event entity.Event) error {
+// func (es *EventsService) RegisterToEvent(ctx context.Context,
+// 	event entity.Event) error {
 
-	_, err := es.repo.UpdateEvent(ctx, event)
-	if err != nil {
-		if strings.Contains(err.Error(), NoRowsAffected) {
-			return entity.ErrEntityDoesNotExist
-		}
-		return fmt.Errorf("EventsService - RegisterToEvent: %w", err)
-	}
+// 	_, err := es.repo.UpdateEvent(ctx, event)
+// 	if err != nil {
+// 		if strings.Contains(err.Error(), NoRowsAffected) {
+// 			return entity.ErrEntityDoesNotExist
+// 		}
+// 		return fmt.Errorf("EventsService - RegisterToEvent: %w", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (es *EventsService) UnregisterEvent(ctx context.Context,
-	event entity.Event) error {
+// func (es *EventsService) UnregisterEvent(ctx context.Context,
+// 	event entity.Event) error {
 
-	_, err := es.repo.UpdateEvent(ctx, event)
-	if err != nil {
-		if strings.Contains(err.Error(), NoRowsAffected) {
-			return entity.ErrEntityDoesNotExist
-		}
-		return fmt.Errorf("EventsService - UnregisterEvent: %w", err)
-	}
+// 	_, err := es.repo.UpdateEvent(ctx, event)
+// 	if err != nil {
+// 		if strings.Contains(err.Error(), NoRowsAffected) {
+// 			return entity.ErrEntityDoesNotExist
+// 		}
+// 		return fmt.Errorf("EventsService - UnregisterEvent: %w", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
