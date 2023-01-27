@@ -13,4 +13,10 @@ type Service interface {
 	DeleteDoctor(ctx context.Context, doctorId int32) error
 	GetAllDoctors(ctx context.Context) ([]entity.Doctor, error)
 	CreateSchedule(ctx context.Context, schedule entity.Schedule) error
+	GetOpenEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
+	GetReservedEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
+	GetReservedEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)
+	GetAllEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)
+	GetEvent(ctx context.Context, eventId int32) (entity.Event, error)
+	RegisterToEvent(ctx context.Context, event entity.Event) error
 }

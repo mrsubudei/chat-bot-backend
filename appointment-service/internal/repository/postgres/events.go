@@ -68,7 +68,7 @@ func (er *EventsRepo) UpdateDoctor(ctx context.Context,
 
 	exist, err := er.GetDoctor(ctx, doctor.Id)
 	if err != nil {
-		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor #1 : %w", err)
+		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - GetDoctor #1 : %w", err)
 	}
 
 	if doctor.Name == "" {
@@ -100,7 +100,7 @@ func (er *EventsRepo) UpdateDoctor(ctx context.Context,
 
 	updated, err := er.GetDoctor(ctx, doctor.Id)
 	if err != nil {
-		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor #2 : %w", err)
+		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - GetDoctor #2: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -333,7 +333,35 @@ func (er *EventsRepo) FetchAllEventsByClient(ctx context.Context,
 	return events, nil
 }
 
-func (er *EventsRepo) UpdateEvent(ctx context.Context, event entity.Event) error {
+func (er *EventsRepo) GetEventById(ctx context.Context, eventId int32) (entity.Event, error) {
+	event := entity.Event{}
+	query := `
+		SELECT id, client_id, doctor_id, starts_at, ends_at
+		FROM events
+		WHERE id = $1
+	`
+
+	res := er.DB.QueryRowContext(ctx, query, eventId)
+	var clientId sql.NullInt32
+
+	err := res.Scan(&event.Id, &clientId, &event.DoctorId, &event.StartsAt, &event.EndsAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return event, entity.ErrEntityDoesNotExist
+	} else if err != nil {
+		return event, fmt.Errorf("EventsRepo - GetEventById - Scan: %w", err)
+	}
+	event.ClientId = clientId.Int32
+
+	return event, nil
+}
+
+func (er *EventsRepo) UpdateEvent(ctx context.Context, event entity.Event) (entity.Event, error) {
+	tx, err := er.DB.Begin()
+	if err != nil {
+		return event, fmt.Errorf("EventsRepo - UpdateEvent - Begin: %w", err)
+	}
+	defer tx.Rollback()
+
 	query1 := `
 		UPDATE events
 		SET client_id = NULL
@@ -348,26 +376,36 @@ func (er *EventsRepo) UpdateEvent(ctx context.Context, event entity.Event) error
 
 	switch event.ClientId {
 	case 0:
-		res, err := er.DB.ExecContext(ctx, query1, event.Id)
+		res, err := tx.ExecContext(ctx, query1, event.Id)
 		if err != nil {
-			return fmt.Errorf("EventsRepo - UpdateEvent - ExecContext case #0: %w", err)
+			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #0 ExecContext: %w", err)
 		}
 
 		rows, err := res.RowsAffected()
 		if rows != 1 || err != nil {
-			return fmt.Errorf("EventsRepo - UpdateEvent - RowsAffected case #0: %w", err)
+			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #0 RowsAffected: %w", err)
 		}
 	default:
-		res, err := er.DB.ExecContext(ctx, query2, event.ClientId, event.Id)
+		res, err := tx.ExecContext(ctx, query2, event.ClientId, event.Id)
 		if err != nil {
-			return fmt.Errorf("EventsRepo - UpdateEvent - ExecContext case #default: %w", err)
+			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #default ExecContext: %w", err)
 		}
 
 		rows, err := res.RowsAffected()
 		if rows != 1 || err != nil {
-			return fmt.Errorf("EventsRepo - UpdateEvent - RowsAffected case #default: %w", err)
+			return event, fmt.Errorf("EventsRepo - UpdateEvent - case #default RowsAffected: %w", err)
 		}
 	}
 
-	return nil
+	updated, err := er.GetEventById(ctx, event.Id)
+	if err != nil {
+		return event, fmt.Errorf("EventsRepo - UpdateEvent - %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return event, fmt.Errorf("EventsRepo - UpdateEvent - Commit: %w", err)
+	}
+
+	return updated, nil
 }

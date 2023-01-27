@@ -146,3 +146,77 @@ func (es *EventsService) GetOpenEventsByDoctor(ctx context.Context,
 
 	return events, nil
 }
+
+func (es *EventsService) GetReservedEventsByDoctor(ctx context.Context,
+	doctorId int32) ([]entity.Event, error) {
+
+	events, err := es.repo.FetchReservedEventsByDoctor(ctx, doctorId)
+	if err != nil {
+		return nil, fmt.Errorf("EventsService - GetReservedEventsByDoctor: %w", err)
+	}
+
+	return events, nil
+}
+
+func (es *EventsService) GetReservedEventsByClient(ctx context.Context,
+	clientId int32) ([]entity.Event, error) {
+
+	events, err := es.repo.FetchReservedEventsByClient(ctx, clientId)
+	if err != nil {
+		return nil, fmt.Errorf("EventsService - GetReservedEventsByClient: %w", err)
+	}
+
+	return events, nil
+}
+
+func (es *EventsService) GetAllEventsByClient(ctx context.Context,
+	clientId int32) ([]entity.Event, error) {
+
+	events, err := es.repo.FetchAllEventsByClient(ctx, clientId)
+	if err != nil {
+		return nil, fmt.Errorf("EventsService - GetAllEventsByClient: %w", err)
+	}
+
+	return events, nil
+}
+
+func (es *EventsService) GetEvent(ctx context.Context, eventId int32) (entity.Event, error) {
+
+	event, err := es.repo.GetEventById(ctx, eventId)
+	if err != nil {
+		if errors.Is(err, entity.ErrEntityDoesNotExist) {
+			return event, err
+		}
+		return event, fmt.Errorf("EventsService - GetEvent: %w", err)
+	}
+
+	return event, nil
+}
+
+func (es *EventsService) RegisterToEvent(ctx context.Context,
+	event entity.Event) error {
+
+	_, err := es.repo.UpdateEvent(ctx, event)
+	if err != nil {
+		if strings.Contains(err.Error(), NoRowsAffected) {
+			return entity.ErrEntityDoesNotExist
+		}
+		return fmt.Errorf("EventsService - RegisterToEvent: %w", err)
+	}
+
+	return nil
+}
+
+func (es *EventsService) UnregisterEvent(ctx context.Context,
+	event entity.Event) error {
+
+	_, err := es.repo.UpdateEvent(ctx, event)
+	if err != nil {
+		if strings.Contains(err.Error(), NoRowsAffected) {
+			return entity.ErrEntityDoesNotExist
+		}
+		return fmt.Errorf("EventsService - UnregisterEvent: %w", err)
+	}
+
+	return nil
+}
