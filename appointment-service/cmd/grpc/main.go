@@ -18,10 +18,10 @@ import (
 
 type AppointmentServer struct {
 	pb.UnimplementedAppointmentServer
-	service *service.ClientsService
+	service *service.EventsService
 }
 
-func NewAppointmentServer(srv *service.ClientsService) *AppointmentServer {
+func NewAppointmentServer(srv *service.EventsService) *AppointmentServer {
 	return &AppointmentServer{service: srv}
 }
 
@@ -74,10 +74,10 @@ func main() {
 	}()
 
 	// Repository
-	repo := p.NewClientsRepo(pg)
+	repo := p.NewEventsRepo(pg)
 
 	// Service
-	service := service.NewClientsService(repo)
+	service := service.NewEventsService(repo)
 
 	lis, err := net.Listen("tcp", "localhost:8081")
 	if err != nil {

@@ -32,10 +32,10 @@ func Run(cfg *config.Config) {
 	}()
 
 	// Repository
-	repo := p.NewClientsRepo(pg)
+	repo := p.NewEventsRepo(pg)
 
 	// Service
-	service := service.NewClientsService(repo)
+	service := service.NewEventsService(repo)
 
 	handler := gin.New()
 	v1.NewRouter(handler, service, l)

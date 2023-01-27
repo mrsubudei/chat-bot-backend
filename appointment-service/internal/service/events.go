@@ -9,17 +9,17 @@ import (
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository"
 )
 
-type ClientsService struct {
+type EventsService struct {
 	repo repository.Clients
 }
 
-func NewClientsService(repo repository.Clients) *ClientsService {
-	return &ClientsService{repo}
+func NewEventsService(repo repository.Clients) *EventsService {
+	return &EventsService{repo}
 }
 
 var layout = "2006-01-02 15:04:05"
 
-func (cs *ClientsService) CreateSchedule(ctx context.Context, schedule entity.Schedule) error {
+func (cs *EventsService) CreateSchedule(ctx context.Context, schedule entity.Schedule) error {
 	dayEvents := []entity.Event{}
 	first := schedule.FirstDay
 	last := schedule.LastDay.AddDate(0, 0, 1)

@@ -33,7 +33,7 @@ func TestStoredoctor(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	if err = repo.StoreDoctor(ctx, doctor); err != nil {
 		t.Fatalf("error was not expected while updating stats: %s", err)
 	}
@@ -60,7 +60,7 @@ func TestDeletedoctor(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 
 	if err = repo.DeleteDoctor(ctx, doctorID); err != nil {
 		t.Fatalf("error was not expected while updating stats: %s", err)
@@ -92,7 +92,7 @@ func TestFetchdoctors(t *testing.T) {
 	prep.ExpectQuery().WithArgs().WillReturnRows(rows)
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	doctors, err := repo.FetchDoctors(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, doctors)
@@ -132,7 +132,7 @@ func TestStoreSchedule(t *testing.T) {
 		WillReturnResult(driver.RowsAffected(1))
 	mock.ExpectCommit()
 
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	if err = repo.StoreSchedule(ctx, events); err != nil {
 		t.Fatalf("error was not expected while updating stats: %s", err)
 	}
@@ -177,7 +177,7 @@ func TestStoreScheduleShouldRoleBack(t *testing.T) {
 	prep.ExpectExec().WithArgs(events[0].DoctorId, events[0].StartsAt, events[0].EndsAt).
 		WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	if err = repo.StoreSchedule(ctx, events); err == nil {
 		t.Fatalf("error was not expected while updating stats: %s", err)
 	}
@@ -210,7 +210,7 @@ func TestFetchOpenEventsByDoctor(t *testing.T) {
 	mock.ExpectQuery(query).WithArgs().WillReturnRows(rows)
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchOpenEventsByDoctor(ctx, doctorId)
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
@@ -238,7 +238,7 @@ func TestFetchReservedEventsByDoctor(t *testing.T) {
 	mock.ExpectQuery(query).WithArgs().WillReturnRows(rows)
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchReservedEventsByDoctor(ctx, doctorId)
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
@@ -266,7 +266,7 @@ func TestFetchReservedEventsByClient(t *testing.T) {
 	mock.ExpectQuery(query).WithArgs().WillReturnRows(rows)
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchReservedEventsByClient(ctx, clientId)
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
@@ -294,7 +294,7 @@ func TestFetchAllEventsByClient(t *testing.T) {
 	mock.ExpectQuery(query).WithArgs().WillReturnRows(rows)
 
 	ctx := context.Background()
-	repo := p.NewClientsRepo(db)
+	repo := p.NewEventsRepo(db)
 	events, err := repo.FetchAllEventsByClient(ctx, clientId)
 	assert.NoError(t, err)
 	assert.NotNil(t, events)
@@ -332,7 +332,7 @@ func TestUpdateEvent(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		ctx := context.Background()
-		repo := p.NewClientsRepo(db)
+		repo := p.NewEventsRepo(db)
 
 		if err = repo.UpdateEvent(ctx, event1); err != nil {
 			t.Fatalf("error was not expected while updating stats: %s", err)
@@ -348,7 +348,7 @@ func TestUpdateEvent(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		ctx := context.Background()
-		repo := p.NewClientsRepo(db)
+		repo := p.NewEventsRepo(db)
 
 		if err = repo.UpdateEvent(ctx, event2); err != nil {
 			t.Fatalf("error was not expected while updating stats: %s", err)
