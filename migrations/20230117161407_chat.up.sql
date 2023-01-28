@@ -6,6 +6,12 @@ CREATE TABLE IF NOT EXISTS clients (
     email TEXT
 );
 
+CREATE TABLE IF NOT EXISTS doctors (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT
+);
+
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL,
     category TEXT,
@@ -19,11 +25,6 @@ CREATE TABLE IF NOT EXISTS events (
         FOREIGN KEY (client_id)
             REFERENCES clients(id),
         FOREIGN KEY (docktor_id)
-            REFERENCES doctors(id),
+            REFERENCES doctors(id)
 );
 
-CREATE TABLE IF NOT EXISTS doctors (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    phone TEXT
-);
