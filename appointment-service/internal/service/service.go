@@ -17,6 +17,6 @@ type Service interface {
 	GetReservedEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
 	GetReservedEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)
 	GetAllEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)
-	RegisterToEvent(ctx context.Context, event entity.Event) error
+	RegisterToEvent(ctx context.Context, event entity.Event) (entity.Event, error)
 	UnregisterEvent(ctx context.Context, event entity.Event) error
 }

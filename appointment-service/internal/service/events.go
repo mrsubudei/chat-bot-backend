@@ -42,8 +42,8 @@ func (es *EventsService) GetDoctor(ctx context.Context, doctorId int32) (entity.
 }
 
 func (es *EventsService) UpdateDoctor(ctx context.Context,
-	doctor entity.Doctor) (entity.Doctor, error) {
-
+	doctor entity.Doctor,
+) (entity.Doctor, error) {
 	updated, err := es.repo.UpdateDoctor(ctx, doctor)
 	if err != nil {
 		if errors.Is(err, entity.ErrDoctorDoesNotExist) {
@@ -76,8 +76,8 @@ func (es *EventsService) GetAllDoctors(ctx context.Context) ([]entity.Doctor, er
 }
 
 func (es *EventsService) CreateSchedule(ctx context.Context,
-	schedule entity.Schedule) (time.Time, error) {
-
+	schedule entity.Schedule,
+) (time.Time, error) {
 	dayEvents := []entity.Event{}
 	var err error
 	var existEvent time.Time
@@ -150,8 +150,8 @@ func (es *EventsService) CreateSchedule(ctx context.Context,
 }
 
 func (es *EventsService) GetOpenEventsByDoctor(ctx context.Context,
-	doctorId int32) ([]entity.Event, error) {
-
+	doctorId int32,
+) ([]entity.Event, error) {
 	events, err := es.repo.FetchOpenEventsByDoctor(ctx, doctorId)
 	if err != nil {
 		return nil, fmt.Errorf("EventsService - GetOpenEventsByDoctor: %w", err)
@@ -161,8 +161,8 @@ func (es *EventsService) GetOpenEventsByDoctor(ctx context.Context,
 }
 
 func (es *EventsService) GetReservedEventsByDoctor(ctx context.Context,
-	doctorId int32) ([]entity.Event, error) {
-
+	doctorId int32,
+) ([]entity.Event, error) {
 	events, err := es.repo.FetchReservedEventsByDoctor(ctx, doctorId)
 	if err != nil {
 		return nil, fmt.Errorf("EventsService - GetReservedEventsByDoctor: %w", err)
@@ -172,8 +172,8 @@ func (es *EventsService) GetReservedEventsByDoctor(ctx context.Context,
 }
 
 func (es *EventsService) GetReservedEventsByClient(ctx context.Context,
-	clientId int32) ([]entity.Event, error) {
-
+	clientId int32,
+) ([]entity.Event, error) {
 	events, err := es.repo.FetchReservedEventsByClient(ctx, clientId)
 	if err != nil {
 		return nil, fmt.Errorf("EventsService - GetReservedEventsByClient: %w", err)
@@ -183,8 +183,8 @@ func (es *EventsService) GetReservedEventsByClient(ctx context.Context,
 }
 
 func (es *EventsService) GetAllEventsByClient(ctx context.Context,
-	clientId int32) ([]entity.Event, error) {
-
+	clientId int32,
+) ([]entity.Event, error) {
 	events, err := es.repo.FetchAllEventsByClient(ctx, clientId)
 	if err != nil {
 		return nil, fmt.Errorf("EventsService - GetAllEventsByClient: %w", err)
@@ -194,22 +194,23 @@ func (es *EventsService) GetAllEventsByClient(ctx context.Context,
 }
 
 func (es *EventsService) RegisterToEvent(ctx context.Context,
-	event entity.Event) error {
-	_, err := es.repo.UpdateEvent(ctx, event)
+	event entity.Event,
+) (entity.Event, error) {
+	updated, err := es.repo.UpdateEvent(ctx, event)
 	if err != nil {
 		if errors.Is(err, entity.ErrEventDoesNotExist) ||
 			errors.Is(err, entity.ErrEventAlreadyReserved) {
-			return err
+			return updated, err
 		}
-		return fmt.Errorf("EventsService - RegisterToEvent: %w", err)
+		return updated, fmt.Errorf("EventsService - RegisterToEvent: %w", err)
 	}
 
-	return nil
+	return updated, nil
 }
 
 func (es *EventsService) UnregisterEvent(ctx context.Context,
-	event entity.Event) error {
-
+	event entity.Event,
+) error {
 	err := es.repo.ClearEvent(ctx, event)
 	if err != nil {
 		if errors.Is(err, entity.ErrEventDoesNotExist) ||

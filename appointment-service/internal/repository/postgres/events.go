@@ -60,8 +60,8 @@ func (er *EventsRepo) GetDoctor(ctx context.Context, doctorId int32) (entity.Doc
 }
 
 func (er *EventsRepo) getDoctorById(ctx context.Context, tx *sql.Tx,
-	doctorId int32) (entity.Doctor, error) {
-
+	doctorId int32,
+) (entity.Doctor, error) {
 	doctor := entity.Doctor{}
 	query := `
 		SELECT id, name, surname, phone
@@ -85,8 +85,8 @@ func (er *EventsRepo) getDoctorById(ctx context.Context, tx *sql.Tx,
 }
 
 func (er *EventsRepo) UpdateDoctor(ctx context.Context,
-	doctor entity.Doctor) (entity.Doctor, error) {
-
+	doctor entity.Doctor,
+) (entity.Doctor, error) {
 	tx, err := er.DB.Begin()
 	if err != nil {
 		return doctor, fmt.Errorf("EventsRepo - UpdateDoctor - Begin: %w", err)
@@ -232,8 +232,8 @@ func (er *EventsRepo) StoreSchedule(ctx context.Context, events []entity.Event) 
 }
 
 func (er *EventsRepo) checkConstraintViolation(ctx context.Context,
-	tx *sql.Tx, events []entity.Event) (time.Time, error) {
-
+	tx *sql.Tx, events []entity.Event,
+) (time.Time, error) {
 	var date time.Time
 
 	stmt, err := er.DB.PrepareContext(ctx, `
@@ -261,7 +261,8 @@ func (er *EventsRepo) checkConstraintViolation(ctx context.Context,
 }
 
 func (er *EventsRepo) FetchOpenEventsByDoctor(ctx context.Context,
-	doctorId int32) ([]entity.Event, error) {
+	doctorId int32,
+) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := er.DB.QueryContext(ctx, `
 		SELECT id, doctor_id, starts_at, ends_at 
@@ -288,7 +289,8 @@ func (er *EventsRepo) FetchOpenEventsByDoctor(ctx context.Context,
 }
 
 func (er *EventsRepo) FetchReservedEventsByDoctor(ctx context.Context,
-	doctorId int32) ([]entity.Event, error) {
+	doctorId int32,
+) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := er.DB.QueryContext(ctx, `
 		SELECT id, client_id, doctor_id, starts_at, ends_at
@@ -316,7 +318,8 @@ func (er *EventsRepo) FetchReservedEventsByDoctor(ctx context.Context,
 }
 
 func (er *EventsRepo) FetchReservedEventsByClient(ctx context.Context,
-	clientId int32) ([]entity.Event, error) {
+	clientId int32,
+) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := er.DB.QueryContext(ctx, `
 		SELECT id, client_id, doctor_id, starts_at, ends_at 
@@ -344,7 +347,8 @@ func (er *EventsRepo) FetchReservedEventsByClient(ctx context.Context,
 }
 
 func (er *EventsRepo) FetchAllEventsByClient(ctx context.Context,
-	clientId int32) ([]entity.Event, error) {
+	clientId int32,
+) ([]entity.Event, error) {
 	events := []entity.Event{}
 	rows, err := er.DB.QueryContext(ctx, `
 		SELECT id, client_id, doctor_id, starts_at, ends_at 
