@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
 )
@@ -12,7 +13,7 @@ type Service interface {
 	UpdateDoctor(ctx context.Context, doctor entity.Doctor) (entity.Doctor, error)
 	DeleteDoctor(ctx context.Context, doctorId int32) error
 	GetAllDoctors(ctx context.Context) ([]entity.Doctor, error)
-	CreateSchedule(ctx context.Context, schedule entity.Schedule) error
+	CreateSchedule(ctx context.Context, schedule entity.Schedule) (time.Time, error)
 	GetOpenEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
 	GetReservedEventsByDoctor(ctx context.Context, doctorId int32) ([]entity.Event, error)
 	GetReservedEventsByClient(ctx context.Context, clientId int32) ([]entity.Event, error)

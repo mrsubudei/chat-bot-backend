@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package appointment;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/mrsubudei/chat-bot-backend/gateway-service/pkg/proto/appointment";
+
+service Appointment {
+  rpc CreateDoctor(DoctorSingle) returns (Empty) {}
+  rpc GetDoctor(IdRequest) returns (DoctorSingle) {}
+  rpc UpdateDoctor(DoctorSingle) returns (DoctorSingle) {}
+  rpc DeleteDoctor(IdRequest) returns (Empty) {}
+  rpc GetAllDoctors(Empty) returns (DoctorMultiple) {}
+  rpc CreateSchedule (ScheduleSingle) returns (Empty) {}
+  rpc GetOpenEventsByDoctor (IdRequest) returns (EventMultiple) {}
+  rpc GetReservedEventsByDoctor (IdRequest) returns (EventMultiple) {}
+  rpc GetReservedEventsByClient (IdRequest) returns (EventMultiple) {}
+  rpc GetAllEventsByClient (IdRequest) returns (EventMultiple) {}
+  rpc RegisterToEvent (EventSingle) returns (EventSingle) {}
+  rpc UnregisterEvent (EventSingle) returns (Empty) {}
+}
+
+message Schedule {
+    google.protobuf.Timestamp first_day = 1;
+    google.protobuf.Timestamp last_day = 2;
+    google.protobuf.Timestamp start_time = 3;
+    google.protobuf.Timestamp end_time = 4;
+    google.protobuf.Timestamp start_break = 5;
+    google.protobuf.Timestamp end_break = 6;
+    int32 event_duration_minutes = 7;
+    repeated int32 doctor_ids = 8;
+}
+
+message Doctor {
+  int32 id= 1;
+  string name = 2;
+  string surname = 3;
+  string phone = 4;
+}
+
+message Event {
+  int32 id= 1;
+  int32 client_id = 2;
+  int32 doctor_id = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
+}
+
+message Empty {
+}
+
+
+message ScheduleSingle {
+  Schedule value = 1;
+}
+
+message DoctorSingle {
+  Doctor value = 1;
+}
+
+message DoctorMultiple {
+  repeated Doctor value = 1;
+}
+
+message EventSingle {
+  Event value = 1;
+}
+
+message EventMultiple{
+  repeated Event value = 1;
+}
+
+message IdRequest {
+  int32 id = 1;
+}
+
+

@@ -139,7 +139,7 @@ func (es *EventsService) CreateSchedule(ctx context.Context,
 			d := existEvent.Format(DateFormat)
 			parsed, err := time.Parse(DateFormat, d)
 			if err != nil {
-				return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse: %w", err)
+				return existEvent, fmt.Errorf("EventsService - CreateSchedule - Parse #5: %w", err)
 			}
 			return parsed, nil
 		}
@@ -150,8 +150,7 @@ func (es *EventsService) CreateSchedule(ctx context.Context,
 }
 
 func (es *EventsService) GetOpenEventsByDoctor(ctx context.Context,
-	doctorId int32,
-) ([]entity.Event, error) {
+	doctorId int32) ([]entity.Event, error) {
 	events, err := es.repo.FetchOpenEventsByDoctor(ctx, doctorId)
 	if err != nil {
 		return nil, fmt.Errorf("EventsService - GetOpenEventsByDoctor: %w", err)

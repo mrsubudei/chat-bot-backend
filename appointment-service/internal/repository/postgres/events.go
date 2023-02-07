@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository"
 )
 
 type EventsRepo struct {
 	*sql.DB
 }
 
-func NewEventsRepo(pg *sql.DB) *EventsRepo {
+func NewEventsRepo(pg *sql.DB) repository.Events {
 	return &EventsRepo{pg}
 }
 

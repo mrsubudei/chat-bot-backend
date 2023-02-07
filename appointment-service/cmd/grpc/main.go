@@ -1,64 +1,27 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
 
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/config"
-	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/api"
 	p "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository/postgres"
-	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/service"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/postgres"
-	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/proto"
+	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/proto"
 	"google.golang.org/grpc"
 )
 
-type AppointmentServer struct {
-	pb.UnimplementedAppointmentServer
-	service *service.EventsService
-}
-
-func NewAppointmentServer(srv *service.EventsService) *AppointmentServer {
-	return &AppointmentServer{service: srv}
-}
-
-func (as *AppointmentServer) CreateSchedule(ctx context.Context,
-	in *pb.ScheduleRequest) (*pb.ScheduleResponse, error) {
-	fd := in.Value.FirstDay.AsTime()
-	ld := in.Value.LastDay.AsTime()
-	st := in.Value.StartTime.AsTime()
-	et := in.Value.EndTime.AsTime()
-	sb := in.Value.StartBreak.AsTime()
-	eb := in.Value.EndBreak.AsTime()
-
-	schedule := entity.Schedule{
-		FirstDay:      fd,
-		LastDay:       ld,
-		StartTime:     st,
-		EndTime:       et,
-		StartBreak:    sb,
-		EndBreak:      eb,
-		EventDuration: in.Value.EventDurationMinutes,
-		DoctorIds:     in.Value.DoctorId,
-	}
-
-	_, err := as.service.CreateSchedule(ctx, schedule)
-	if err != nil {
-		return &pb.ScheduleResponse{}, err
-	}
-
-	return &pb.ScheduleResponse{}, nil
-}
-
 func main() {
-
-	cfg, err := config.NewConfig()
+	// config
+	cfg, err := config.NewConfig("./config/config.yml")
 	if err != nil {
 		log.Fatalf("Config error: %s", err)
 	}
+
+	// logger
 	l := logger.New(cfg.Logger.Level)
 
 	//Postgres
@@ -76,18 +39,16 @@ func main() {
 	// Repository
 	repo := p.NewEventsRepo(pg)
 
-	// Service
-	service := service.NewEventsService(repo)
-
-	lis, err := net.Listen("tcp", "localhost:8081")
+	// grpc server
+	lis, err := net.Listen("tcp", cfg.HTTP.Host+cfg.HTTP.Port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		l.Error(fmt.Errorf("app - Run - Listen: %w", err))
 	}
 	s := grpc.NewServer()
 
-	pb.RegisterAppointmentServer(s, NewAppointmentServer(service))
+	pb.RegisterAppointmentServer(s, api.NewAppointmentServer(repo, l))
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		l.Error(fmt.Errorf("app - Run - Serve: %w", err))
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/proto"
+	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	addr = flag.String("addr", "localhost:8081", "the address to connect to")
+	addr = flag.String("addr", "localhost:8087", "the address to connect to")
 	name = flag.String("name", defaultName, "Name to greet")
 )
 
@@ -40,7 +40,7 @@ func main() {
 		log.Fatal(err)
 	}
 	lastDay, _ := time.Parse(layout, "2023-01-28 00:00:00")
-	startTime, _ := time.Parse(layout, "2023-01-28 09:00:00")
+	startTime, _ := time.Parse(layout, "0001-01-01 01:00:00")
 	endTime, _ := time.Parse(layout, "2023-01-28 15:00:00")
 	startBreak, _ := time.Parse(layout, "2023-01-28 12:00:00")
 	endBreak, _ := time.Parse(layout, "2023-01-28 13:00:00")
@@ -60,11 +60,10 @@ func main() {
 		StartBreak:           sb,
 		EndBreak:             eb,
 		EventDurationMinutes: 30,
-		DoctorId:             []int32{9, 10},
+		DoctorIds:            []int32{9, 10},
 	}
-	e, err := c.CreateSchedule(context.Background(), &pb.ScheduleRequest{Value: schedule})
+	_, err = c.CreateSchedule(context.Background(), &pb.ScheduleSingle{Value: schedule})
 	if err != nil {
 		fmt.Println(err)
 	}
-	e.GetValue()
 }
