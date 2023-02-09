@@ -19,10 +19,10 @@ import (
 type AppointmentServer struct {
 	pb.UnimplementedAppointmentServer
 	repo repository.Events
-	l    *logger.Logger
+	l    logger.Interface
 }
 
-func NewAppointmentServer(repo repository.Events, l *logger.Logger) *AppointmentServer {
+func NewAppointmentServer(repo repository.Events, l logger.Interface) *AppointmentServer {
 	return &AppointmentServer{
 		repo: repo,
 		l:    l,

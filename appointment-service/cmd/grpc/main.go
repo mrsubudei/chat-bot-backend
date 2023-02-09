@@ -3,26 +3,27 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
+	"time"
 
-	"github.com/mrsubudei/chat-bot-backend/appointment-service/config"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/api"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/config"
 	p "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository/postgres"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/server"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/postgres"
-	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/proto"
-	"google.golang.org/grpc"
 )
 
 func main() {
 	// config
-	cfg, err := config.NewConfig("./config/config.yml")
+	cfg, err := config.NewConfig("config.yml")
 	if err != nil {
 		log.Fatalf("Config error: %s", err)
 	}
 
 	// logger
 	l := logger.New(cfg.Logger.Level)
+
+	time.Sleep(time.Second * 10)
 
 	//Postgres
 	pg, err := postgres.New(cfg)
@@ -36,19 +37,18 @@ func main() {
 		}
 	}()
 
+	// Migrate
+	err = api.Migrate(cfg, l)
+	if err != nil {
+		l.Error(fmt.Errorf("app - Run - Migrate: %w", err))
+	}
+
 	// Repository
 	repo := p.NewEventsRepo(pg)
 
-	// grpc server
-	lis, err := net.Listen("tcp", cfg.HTTP.Host+cfg.HTTP.Port)
-	if err != nil {
-		l.Error(fmt.Errorf("app - Run - Listen: %w", err))
-	}
-	s := grpc.NewServer()
-
-	pb.RegisterAppointmentServer(s, api.NewAppointmentServer(repo, l))
-	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		l.Error(fmt.Errorf("app - Run - Serve: %w", err))
+	// Grpc server
+	if err := server.NewGrpcServer(repo, l).Start(cfg); err != nil {
+		l.Error("Failed creating gRPC server", err)
+		return
 	}
 }

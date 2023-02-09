@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/mrsubudei/chat-bot-backend/appointment-service/config"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/api"
+	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/config"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/entity"
 	mock_repository "github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository/mock"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
@@ -36,7 +36,7 @@ func mockEventApi(t *testing.T) (*api.AppointmentServer, *mock_repository.MockEv
 
 	repo := mock_repository.NewMockEventsRepo(mockCtl)
 
-	cfg, err := config.NewConfig("../../config/config.yml")
+	cfg, err := config.NewConfig("../../config.yml")
 	if err != nil {
 		log.Fatalf("Config error: %s", err)
 	}

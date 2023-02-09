@@ -1,25 +1,27 @@
 version: "3.9"
 services:
-  web:
-    build: .
-    container_name: app
-    image: app
-    environment:
-      PG_URL: 'postgres://user:pass@postgres:5432/postgres'
-    ports:
-      - "8087:8087"
-
-  postgres:
-    container_name: postgres
+  pgapoi:
+    container_name: pgapoi
     image: postgres
     volumes:
-      - pg-data:/var/lib/postgresql/data
+      - pg-apoi9:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: 'user'
       POSTGRES_PASSWORD: 'pass'
-      POSTGRES_DB: 'postgres'
+      POSTGRES_DB: 'apoi'
     ports:
-      - 5432:5432
+      - 5433:5433
+    command: -p 5433
+
+  appointment-service:
+    build: appointment-service
+    container_name: apoi
+    environment:
+      PG_URL: 'postgres://user:pass@pgapoi:5433/apoi'
+    ports:
+      - "8087:8087"
+    depends_on:
+      - pgapoi
 
 volumes:
-  pg-data:
+  pg-apoi9:
