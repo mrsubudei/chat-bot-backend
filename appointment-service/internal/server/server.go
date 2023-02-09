@@ -2,7 +2,11 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -15,6 +19,7 @@ import (
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/internal/repository"
 	"github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/logger"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
 	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/proto"
@@ -41,6 +46,34 @@ func (gs *GrpcServer) Start(cfg *config.Config) error {
 	isReady := &atomic.Value{}
 	isReady.Store(false)
 
+	// read ca's cert, verify to client's certificate
+	caPem, err := ioutil.ReadFile("cert/ca.cert")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create cert pool and append ca's cert
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caPem) {
+		log.Fatal(err)
+	}
+
+	// read server cert & key
+	serverCert, err := tls.LoadX509KeyPair("cert/service.pem", "cert/service.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// configuration of the certificate what we want to
+	conf := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
+	}
+
+	//create tls certificate
+	tlsCredentials := credentials.NewTLS(conf)
+
 	l, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
@@ -48,6 +81,7 @@ func (gs *GrpcServer) Start(cfg *config.Config) error {
 	defer l.Close()
 
 	grpcServer := grpc.NewServer(
+		grpc.Creds(tlsCredentials),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: time.Duration(cfg.Grpc.MaxConnectionIdle) * time.Minute,
 			Timeout:           time.Duration(cfg.Grpc.Timeout) * time.Second,

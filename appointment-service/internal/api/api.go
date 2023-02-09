@@ -154,7 +154,6 @@ func (as *AppointmentServer) GetAllDoctors(ctx context.Context,
 
 func (as *AppointmentServer) CreateSchedule(ctx context.Context,
 	in *pb.ScheduleSingle) (*pb.Empty, error) {
-
 	dayEvents := []entity.Event{}
 	var err error
 	var existEvent time.Time

@@ -12,5 +12,6 @@ WORKDIR /app
 COPY --from=build /app/main /app/main
 COPY config.yml /app/config.yml
 COPY /migrations /app/migrations
+COPY /cert /app/cert
 
 CMD ["/app/main"]
