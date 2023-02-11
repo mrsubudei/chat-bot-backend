@@ -4,7 +4,7 @@ package appointment;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/mrsubudei/chat-bot-backend/gateway-service/pkg/proto/appointment";
+option go_package = "github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/proto/appointment";
 
 service Appointment {
   rpc CreateDoctor(DoctorSingle) returns (Empty) {}

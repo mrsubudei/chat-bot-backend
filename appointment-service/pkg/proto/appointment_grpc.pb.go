@@ -493,5 +493,5 @@ var Appointment_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pkg/proto/appointment.proto",
+	Metadata: "proto/appointment.proto",
 }
