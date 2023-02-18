@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package authorization;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/proto/authorization";
+
+service Authorization {
+  rpc Store(UserSingle) returns (IdRequest) {}
+  rpc GetByPhone(StringRequest) returns (UserSingle) {}
+  rpc GetById(IdRequest) returns (UserSingle) {}
+  rpc GetByToken(StringRequest) returns (UserSingle) {}
+  rpc UpdateSession(UserSingle) returns (Empty) {}
+  rpc UpdateVerification(UserSingle) returns (Empty) {}
+}
+
+message User {
+  int32 id= 1;
+  string name = 2;
+  string phone = 3;
+  string email = 4;
+  string password = 5;
+  string role = 6;
+  bool verified = 7;
+  string sms_code = 8;
+  string session_token = 9;
+  google.protobuf.Timestamp session_ttl = 10;
+}
+
+message Empty {
+}
+
+message UserSingle {
+  User value = 1;
+}
+
+message StringRequest {
+  string str = 1;
+}
+
+message IdRequest {
+  int32 id = 1;
+}
+
+

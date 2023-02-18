@@ -1,0 +1,22 @@
+app:
+  name: 'chat-bot-backend'
+  version: '1.0.0'
+
+grpc:
+  host: '0.0.0.0'
+  port: '8086'
+  maxConnectionIdle: 5 # Minutes
+  timeout: 15 # Seconds
+  maxConnectionAge: 5 # Minutes
+
+postgres:
+  pool_max: 2
+  url: "postgres://user:pass@pgapoi:5434/auth"
+
+logger:
+  log_level: 'debug'
+  rollbar_env: 'chat-bot-backend'
+
+token_manager:
+  session_expiring_time: '720'
+  token_name: 'session_token'
