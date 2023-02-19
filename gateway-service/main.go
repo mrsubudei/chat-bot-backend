@@ -2,30 +2,52 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"time"
 
 	pb "github.com/mrsubudei/chat-bot-backend/appointment-service/pkg/proto"
+
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-	defaultName = "world"
-)
-
 var (
-	addr = flag.String("addr", "localhost:8087", "the address to connect to")
-	name = flag.String("name", defaultName, "Name to greet")
+	addr = flag.String("addr", "127.0.0.1:8087", "the address to connect to")
 )
 
 func main() {
 	flag.Parse()
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// read ca's cert
+	caCert, err := ioutil.ReadFile("cert/ca.cert")
+	if err != nil {
+		log.Fatal(caCert)
+	}
+
+	// create cert pool and append ca's cert
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(caCert); !ok {
+		log.Fatal(err)
+	}
+
+	//read client cert
+	clientCert, err := tls.LoadX509KeyPair("cert/service.pem", "cert/service.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      certPool,
+	}
+
+	tlsCredential := credentials.NewTLS(config)
+	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(tlsCredential))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -60,7 +82,7 @@ func main() {
 		StartBreak:           sb,
 		EndBreak:             eb,
 		EventDurationMinutes: 30,
-		DoctorIds:            []int32{9, 10},
+		DoctorIds:            []int32{1},
 	}
 	_, err = c.CreateSchedule(context.Background(), &pb.ScheduleSingle{Value: schedule})
 	if err != nil {

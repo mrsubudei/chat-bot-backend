@@ -41,6 +41,19 @@ func (mr *MockUsersRepoRecorder) Store(ctx, user interface{}) *gomock.Call {
 		reflect.TypeOf((*MockUsersRepo)(nil).Store), ctx, user)
 }
 
+func (m *MockUsersRepo) Delete(ctx context.Context, userId int32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, userId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockUsersRepoRecorder) Delete(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete",
+		reflect.TypeOf((*MockUsersRepo)(nil).Delete), ctx, userId)
+}
+
 func (m *MockUsersRepo) GetByPhone(ctx context.Context,
 	phone string) (entity.User, error) {
 	m.ctrl.T.Helper()
@@ -54,6 +67,21 @@ func (mr *MockUsersRepoRecorder) GetByPhone(ctx, phone interface{}) *gomock.Call
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByPhone",
 		reflect.TypeOf((*MockUsersRepo)(nil).GetByPhone), ctx, phone)
+}
+
+func (m *MockUsersRepo) GetByEmail(ctx context.Context,
+	email string) (entity.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByEmail", ctx, email)
+	ret0, _ := ret[0].(entity.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockUsersRepoRecorder) GetByEmail(ctx, email interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByEmail",
+		reflect.TypeOf((*MockUsersRepo)(nil).GetByEmail), ctx, email)
 }
 
 func (m *MockUsersRepo) GetById(ctx context.Context, id int32) (entity.User, error) {

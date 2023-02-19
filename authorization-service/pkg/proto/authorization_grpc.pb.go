@@ -18,12 +18,13 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AuthorizationClient interface {
-	Store(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*IdRequest, error)
+	SignUp(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*IdRequest, error)
+	SignIn(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error)
+	VerifyRegistration(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error)
 	GetByPhone(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error)
+	GetByEmail(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error)
 	GetById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserSingle, error)
-	GetByToken(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error)
-	UpdateSession(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error)
-	UpdateVerification(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error)
+	GetBySessionToken(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error)
 }
 
 type authorizationClient struct {
@@ -34,9 +35,27 @@ func NewAuthorizationClient(cc grpc.ClientConnInterface) AuthorizationClient {
 	return &authorizationClient{cc}
 }
 
-func (c *authorizationClient) Store(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*IdRequest, error) {
+func (c *authorizationClient) SignUp(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*IdRequest, error) {
 	out := new(IdRequest)
-	err := c.cc.Invoke(ctx, "/authorization.Authorization/Store", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/authorization.Authorization/SignUp", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authorizationClient) SignIn(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/authorization.Authorization/SignIn", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authorizationClient) VerifyRegistration(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/authorization.Authorization/VerifyRegistration", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +71,15 @@ func (c *authorizationClient) GetByPhone(ctx context.Context, in *StringRequest,
 	return out, nil
 }
 
+func (c *authorizationClient) GetByEmail(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error) {
+	out := new(UserSingle)
+	err := c.cc.Invoke(ctx, "/authorization.Authorization/GetByEmail", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authorizationClient) GetById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserSingle, error) {
 	out := new(UserSingle)
 	err := c.cc.Invoke(ctx, "/authorization.Authorization/GetById", in, out, opts...)
@@ -61,27 +89,9 @@ func (c *authorizationClient) GetById(ctx context.Context, in *IdRequest, opts .
 	return out, nil
 }
 
-func (c *authorizationClient) GetByToken(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error) {
+func (c *authorizationClient) GetBySessionToken(ctx context.Context, in *StringRequest, opts ...grpc.CallOption) (*UserSingle, error) {
 	out := new(UserSingle)
-	err := c.cc.Invoke(ctx, "/authorization.Authorization/GetByToken", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authorizationClient) UpdateSession(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/authorization.Authorization/UpdateSession", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authorizationClient) UpdateVerification(ctx context.Context, in *UserSingle, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/authorization.Authorization/UpdateVerification", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/authorization.Authorization/GetBySessionToken", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,12 +102,13 @@ func (c *authorizationClient) UpdateVerification(ctx context.Context, in *UserSi
 // All implementations must embed UnimplementedAuthorizationServer
 // for forward compatibility
 type AuthorizationServer interface {
-	Store(context.Context, *UserSingle) (*IdRequest, error)
+	SignUp(context.Context, *UserSingle) (*IdRequest, error)
+	SignIn(context.Context, *UserSingle) (*Empty, error)
+	VerifyRegistration(context.Context, *UserSingle) (*Empty, error)
 	GetByPhone(context.Context, *StringRequest) (*UserSingle, error)
+	GetByEmail(context.Context, *StringRequest) (*UserSingle, error)
 	GetById(context.Context, *IdRequest) (*UserSingle, error)
-	GetByToken(context.Context, *StringRequest) (*UserSingle, error)
-	UpdateSession(context.Context, *UserSingle) (*Empty, error)
-	UpdateVerification(context.Context, *UserSingle) (*Empty, error)
+	GetBySessionToken(context.Context, *StringRequest) (*UserSingle, error)
 	mustEmbedUnimplementedAuthorizationServer()
 }
 
@@ -105,23 +116,26 @@ type AuthorizationServer interface {
 type UnimplementedAuthorizationServer struct {
 }
 
-func (UnimplementedAuthorizationServer) Store(context.Context, *UserSingle) (*IdRequest, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Store not implemented")
+func (UnimplementedAuthorizationServer) SignUp(context.Context, *UserSingle) (*IdRequest, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SignUp not implemented")
+}
+func (UnimplementedAuthorizationServer) SignIn(context.Context, *UserSingle) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SignIn not implemented")
+}
+func (UnimplementedAuthorizationServer) VerifyRegistration(context.Context, *UserSingle) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyRegistration not implemented")
 }
 func (UnimplementedAuthorizationServer) GetByPhone(context.Context, *StringRequest) (*UserSingle, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetByPhone not implemented")
 }
+func (UnimplementedAuthorizationServer) GetByEmail(context.Context, *StringRequest) (*UserSingle, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetByEmail not implemented")
+}
 func (UnimplementedAuthorizationServer) GetById(context.Context, *IdRequest) (*UserSingle, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetById not implemented")
 }
-func (UnimplementedAuthorizationServer) GetByToken(context.Context, *StringRequest) (*UserSingle, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetByToken not implemented")
-}
-func (UnimplementedAuthorizationServer) UpdateSession(context.Context, *UserSingle) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateSession not implemented")
-}
-func (UnimplementedAuthorizationServer) UpdateVerification(context.Context, *UserSingle) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateVerification not implemented")
+func (UnimplementedAuthorizationServer) GetBySessionToken(context.Context, *StringRequest) (*UserSingle, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBySessionToken not implemented")
 }
 func (UnimplementedAuthorizationServer) mustEmbedUnimplementedAuthorizationServer() {}
 
@@ -136,20 +150,56 @@ func RegisterAuthorizationServer(s grpc.ServiceRegistrar, srv AuthorizationServe
 	s.RegisterService(&Authorization_ServiceDesc, srv)
 }
 
-func _Authorization_Store_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Authorization_SignUp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UserSingle)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AuthorizationServer).Store(ctx, in)
+		return srv.(AuthorizationServer).SignUp(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/authorization.Authorization/Store",
+		FullMethod: "/authorization.Authorization/SignUp",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthorizationServer).Store(ctx, req.(*UserSingle))
+		return srv.(AuthorizationServer).SignUp(ctx, req.(*UserSingle))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Authorization_SignIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserSingle)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthorizationServer).SignIn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/authorization.Authorization/SignIn",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthorizationServer).SignIn(ctx, req.(*UserSingle))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Authorization_VerifyRegistration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserSingle)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthorizationServer).VerifyRegistration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/authorization.Authorization/VerifyRegistration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthorizationServer).VerifyRegistration(ctx, req.(*UserSingle))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -172,6 +222,24 @@ func _Authorization_GetByPhone_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Authorization_GetByEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StringRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthorizationServer).GetByEmail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/authorization.Authorization/GetByEmail",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthorizationServer).GetByEmail(ctx, req.(*StringRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Authorization_GetById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IdRequest)
 	if err := dec(in); err != nil {
@@ -190,56 +258,20 @@ func _Authorization_GetById_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Authorization_GetByToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Authorization_GetBySessionToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StringRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AuthorizationServer).GetByToken(ctx, in)
+		return srv.(AuthorizationServer).GetBySessionToken(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/authorization.Authorization/GetByToken",
+		FullMethod: "/authorization.Authorization/GetBySessionToken",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthorizationServer).GetByToken(ctx, req.(*StringRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Authorization_UpdateSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserSingle)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthorizationServer).UpdateSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/authorization.Authorization/UpdateSession",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthorizationServer).UpdateSession(ctx, req.(*UserSingle))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Authorization_UpdateVerification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserSingle)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthorizationServer).UpdateVerification(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/authorization.Authorization/UpdateVerification",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthorizationServer).UpdateVerification(ctx, req.(*UserSingle))
+		return srv.(AuthorizationServer).GetBySessionToken(ctx, req.(*StringRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -252,30 +284,34 @@ var Authorization_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*AuthorizationServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Store",
-			Handler:    _Authorization_Store_Handler,
+			MethodName: "SignUp",
+			Handler:    _Authorization_SignUp_Handler,
+		},
+		{
+			MethodName: "SignIn",
+			Handler:    _Authorization_SignIn_Handler,
+		},
+		{
+			MethodName: "VerifyRegistration",
+			Handler:    _Authorization_VerifyRegistration_Handler,
 		},
 		{
 			MethodName: "GetByPhone",
 			Handler:    _Authorization_GetByPhone_Handler,
 		},
 		{
+			MethodName: "GetByEmail",
+			Handler:    _Authorization_GetByEmail_Handler,
+		},
+		{
 			MethodName: "GetById",
 			Handler:    _Authorization_GetById_Handler,
 		},
 		{
-			MethodName: "GetByToken",
-			Handler:    _Authorization_GetByToken_Handler,
-		},
-		{
-			MethodName: "UpdateSession",
-			Handler:    _Authorization_UpdateSession_Handler,
-		},
-		{
-			MethodName: "UpdateVerification",
-			Handler:    _Authorization_UpdateVerification_Handler,
+			MethodName: "GetBySessionToken",
+			Handler:    _Authorization_GetBySessionToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/authorization.proto",
+	Metadata: "pkg/proto/authorization.proto",
 }

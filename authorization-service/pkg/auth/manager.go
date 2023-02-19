@@ -36,7 +36,8 @@ func (m *Manager) NewToken() (string, error) {
 }
 
 func (m *Manager) UpdateTTL() time.Time {
-	TTL := time.Now().Add(time.Duration(m.Cfg.TokenManager.SessionExpiringTime * int(time.Hour)))
+	TTL := time.Now().Add(time.Duration(m.Cfg.TokenManager.SessionExpiringTime *
+		int(time.Hour)))
 	return TTL
 }
 

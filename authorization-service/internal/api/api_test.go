@@ -8,10 +8,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/internal/api"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/internal/config"
+	"github.com/mrsubudei/chat-bot-backend/authorization-service/internal/entity"
 	mock_repository "github.com/mrsubudei/chat-bot-backend/authorization-service/internal/repository/mock"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/auth"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/hasher"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/logger"
+	mock_mailer "github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/mailer/mock"
 	pb "github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/proto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -32,7 +34,7 @@ func mockUserApi(t *testing.T) (*api.AuthorizationServer, *mock_repository.MockU
 	defer mockCtl.Finish()
 
 	repo := mock_repository.NewMockUsersRepo(mockCtl)
-	cfg, err := config.NewConfig("../../config.yml")
+	cfg, err := config.NewConfig("../../config.yml", "../../env")
 	if err != nil {
 		t.Fatalf("Config error: %s", err)
 	}
@@ -40,7 +42,9 @@ func mockUserApi(t *testing.T) (*api.AuthorizationServer, *mock_repository.MockU
 	l := logger.New(cfg.Logger.Level)
 	hasher := hasher.NewBcryptHasher()
 	tokenManager := auth.NewManager(cfg)
-	eventsService := api.NewAuthorizationServer(repo, l, hasher, tokenManager)
+	mockMailer := mock_mailer.NewMockMailer()
+
+	eventsService := api.NewAuthorizationServer(repo, l, cfg, hasher, tokenManager, mockMailer)
 
 	return eventsService, repo
 }
@@ -65,6 +69,40 @@ func TestCreateUser(t *testing.T) {
 			},
 			res: &pb.IdRequest{},
 			err: nil,
+		},
+		{
+			name: "Error user already exists",
+			mock: func() {
+				repo.EXPECT().Store(ctx, gomock.Any()).Return(id,
+					errors.New(api.DuplicateErrMsg))
+			},
+			user: &pb.UserSingle{
+				Value: &pb.User{
+					Name:     "Kilka",
+					Phone:    "+7-701-798-87-77",
+					Password: "pass",
+				},
+			},
+			res: &pb.IdRequest{},
+			err: status.Error(codes.AlreadyExists,
+				entity.ErrUserAlreadyExists.Error()),
+		},
+		{
+			name: "Error internal",
+			mock: func() {
+				repo.EXPECT().Store(ctx, gomock.Any()).Return(id,
+					errors.New("Internal error"))
+			},
+			user: &pb.UserSingle{
+				Value: &pb.User{
+					Name:     "Kilka",
+					Phone:    "+7-701-798-87-77",
+					Password: "pass",
+				},
+			},
+			res: &pb.IdRequest{},
+			err: status.Error(codes.Internal,
+				api.InternalErr),
 		},
 		{
 			name: "Error empty name field",
@@ -127,28 +165,12 @@ func TestCreateUser(t *testing.T) {
 			err: status.Error(codes.InvalidArgument,
 				api.RequestZeroValue+": Password"),
 		},
-		{
-			name: "Error user already exists",
-			mock: func() {
-				repo.EXPECT().Store(ctx, gomock.Any()).Return(id,
-					errors.New("cheta tam"))
-			},
-			user: &pb.UserSingle{
-				Value: &pb.User{
-					Name:     "Kilka",
-					Phone:    "+7-701-798-87-77",
-					Password: "pass",
-				},
-			},
-			res: &pb.IdRequest{},
-			err: status.Error(codes.Internal, api.InternalErr),
-		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.mock()
-			res, err := apiService.CreateUser(ctx, tc.user)
+			res, err := apiService.SignUp(ctx, tc.user)
 			require.ErrorIs(t, err, tc.err)
 			require.Equal(t, res, tc.res)
 		})

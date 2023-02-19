@@ -18,5 +18,11 @@ logger:
   rollbar_env: 'chat-bot-backend'
 
 token_manager:
-  session_expiring_time: '720'
+  session_expiring_time: '720' #hours
   token_name: 'session_token'
+  verification_expiring_time: '24' #hours
+
+mailer:
+  host: 'smtp.mail.ru'
+  port: 465
+  call_back_host: 'http://localhost:8080/verify'

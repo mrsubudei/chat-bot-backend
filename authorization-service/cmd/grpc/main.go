@@ -12,12 +12,13 @@ import (
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/auth"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/hasher"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/logger"
+	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/mailer"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/postgres"
 )
 
 func main() {
 	// config
-	cfg, err := config.NewConfig("config.yml")
+	cfg, err := config.NewConfig("config.yml", "env")
 	if err != nil {
 		log.Fatalf("Config error: %s", err)
 	}
@@ -50,9 +51,11 @@ func main() {
 
 	hasher := hasher.NewBcryptHasher()
 	tokenManager := auth.NewManager(cfg)
+	mailer := mailer.NewVerification(cfg)
 
 	// Grpc server
-	if err := server.NewGrpcServer(repo, l, hasher, tokenManager).Start(cfg); err != nil {
+	if err := server.NewGrpcServer(repo, l, cfg, hasher, tokenManager, mailer).
+		Start(cfg); err != nil {
 		l.Error("Failed creating gRPC server", err)
 		return
 	}

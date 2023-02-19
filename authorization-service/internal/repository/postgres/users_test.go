@@ -29,7 +29,7 @@ func TestStore(t *testing.T) {
 	`)
 
 	query3 := regexp.QuoteMeta(`
-	INSERT INTO virifications (user_id)
+	INSERT INTO verifications (user_id)
 			VALUES ($1)
 	`)
 
@@ -107,13 +107,13 @@ func TestGetByPhone(t *testing.T) {
 	phone := "87776542154"
 
 	rows := sqlmock.NewRows([]string{"id", "name", "phone", "email", "password",
-		"role", "session_token", "session_ttl", "sms_code", "verified"}).
+		"role", "session_token", "session_ttl", "verification_token", "verified"}).
 		AddRow(1, "Vasya", phone, "vasye@gmail.com", "pass", p.Client,
 			"token", time.Now(), "056841", false)
 
 	query := regexp.QuoteMeta(`
 	SELECT id, name, phone, email, password, role, session_token, session_ttl,
-		sms_code, verified
+		verification_token, verified
 		FROM users
 		INNER JOIN sessions ON users.id = sessions.user_id
 		INNER JOIN verifications ON users.id = verifications.user_id
@@ -143,13 +143,13 @@ func TestGetById(t *testing.T) {
 	id := int32(2)
 
 	rows := sqlmock.NewRows([]string{"id", "name", "phone", "email", "password",
-		"role", "session_token", "session_ttl", "sms_code", "verified"}).
+		"role", "session_token", "session_ttl", "verification_token", "verified"}).
 		AddRow(id, "Vasya", "87776548754", "vasye@gmail.com", "pass", p.Client,
 			"token", time.Now(), "056841", false)
 
 	query := regexp.QuoteMeta(`
 	SELECT id, name, phone, email, password, role, session_token, session_ttl,
-		sms_code, verified
+		verification_token, verified
 		FROM users
 		INNER JOIN sessions ON users.id = sessions.user_id
 		INNER JOIN verifications ON users.id = verifications.user_id
@@ -179,13 +179,13 @@ func TestGetByToken(t *testing.T) {
 	token := "token"
 
 	rows := sqlmock.NewRows([]string{"id", "name", "phone", "email", "password",
-		"role", "session_token", "session_ttl", "sms_code", "verified"}).
+		"role", "session_token", "session_ttl", "verification_token", "verified"}).
 		AddRow(4, "Vasya", "87776548754", "vasye@gmail.com", "pass", p.Client,
 			token, time.Now(), "056841", false)
 
 	query := regexp.QuoteMeta(`
 	SELECT id, name, phone, email, password, role, session_token, session_ttl,
-		sms_code, verified
+		verification_token, verified
 		FROM users
 		INNER JOIN sessions ON users.id = sessions.user_id
 		INNER JOIN verifications ON users.id = verifications.user_id
@@ -243,17 +243,17 @@ func TestUpdateVerification(t *testing.T) {
 	}
 	query := regexp.QuoteMeta(`
 	UPDATE verifications
-		SET sms_code = $1, verified = $2
+		SET verification_token = $1, verified = $2
 		WHERE user_id = $3
 	`)
 
 	user := entity.User{
-		Id:       5,
-		SmsCode:  "05498",
-		Verified: false,
+		Id:                5,
+		VerificationToken: "05498",
+		Verified:          false,
 	}
 
-	mock.ExpectExec(query).WithArgs(user.SmsCode, user.Verified, user.Id).
+	mock.ExpectExec(query).WithArgs(user.VerificationToken, user.Verified, user.Id).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()

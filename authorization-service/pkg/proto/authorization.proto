@@ -7,12 +7,13 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/proto/authorization";
 
 service Authorization {
-  rpc Store(UserSingle) returns (IdRequest) {}
+  rpc SignUp(UserSingle) returns (IdRequest) {}
+  rpc SignIn(UserSingle) returns (Empty) {}
+  rpc VerifyRegistration(UserSingle) returns (Empty) {}
   rpc GetByPhone(StringRequest) returns (UserSingle) {}
+  rpc GetByEmail(StringRequest) returns (UserSingle) {}
   rpc GetById(IdRequest) returns (UserSingle) {}
-  rpc GetByToken(StringRequest) returns (UserSingle) {}
-  rpc UpdateSession(UserSingle) returns (Empty) {}
-  rpc UpdateVerification(UserSingle) returns (Empty) {}
+  rpc GetBySessionToken(StringRequest) returns (UserSingle) {}
 }
 
 message User {
@@ -23,7 +24,7 @@ message User {
   string password = 5;
   string role = 6;
   bool verified = 7;
-  string sms_code = 8;
+  string verification_token = 8;
   string session_token = 9;
   google.protobuf.Timestamp session_ttl = 10;
 }

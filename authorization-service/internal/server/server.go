@@ -20,6 +20,8 @@ import (
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/auth"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/hasher"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/logger"
+	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/mailer"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -30,17 +32,23 @@ import (
 type GrpcServer struct {
 	repo         repository.Users
 	l            logger.Interface
+	cfg          *config.Config
 	hasher       *hasher.BcryptHasher
 	tokenManager *auth.Manager
+	mailer       mailer.Interface
 }
 
-func NewGrpcServer(repo repository.Users, l logger.Interface,
-	hasher *hasher.BcryptHasher, manager *auth.Manager) *GrpcServer {
+func NewGrpcServer(repo repository.Users, l logger.Interface, cfg *config.Config,
+	hasher *hasher.BcryptHasher, manager *auth.Manager,
+	mailer mailer.Interface) *GrpcServer {
+
 	return &GrpcServer{
 		repo:         repo,
 		l:            l,
 		hasher:       hasher,
+		cfg:          cfg,
 		tokenManager: manager,
+		mailer:       mailer,
 	}
 }
 
@@ -98,7 +106,8 @@ func (gs *GrpcServer) Start(cfg *config.Config) error {
 	)
 
 	pb.RegisterAuthorizationServer(grpcServer,
-		api.NewAuthorizationServer(gs.repo, gs.l, gs.hasher, gs.tokenManager))
+		api.NewAuthorizationServer(gs.repo, gs.l, cfg, gs.hasher,
+			gs.tokenManager, gs.mailer))
 
 	go func() {
 		gs.l.Info("GRPC Server is listening on: %s", grpcAddr)

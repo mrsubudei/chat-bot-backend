@@ -2,17 +2,21 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/mail"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/mrsubudei/chat-bot-backend/authorization-service/internal/config"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/internal/entity"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/internal/repository"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/auth"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/hasher"
 	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/logger"
+	"github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/mailer"
 	pb "github.com/mrsubudei/chat-bot-backend/authorization-service/pkg/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,26 +27,35 @@ type AuthorizationServer struct {
 	pb.UnimplementedAuthorizationServer
 	repo         repository.Users
 	l            logger.Interface
+	cfg          *config.Config
 	hasher       *hasher.BcryptHasher
 	tokenManager *auth.Manager
+	mailer       mailer.Interface
 }
 
 func NewAuthorizationServer(repo repository.Users, l logger.Interface,
-	hasher *hasher.BcryptHasher, manager *auth.Manager) *AuthorizationServer {
+	cfg *config.Config, hasher *hasher.BcryptHasher, manager *auth.Manager,
+	mailer mailer.Interface) *AuthorizationServer {
+
 	return &AuthorizationServer{
 		repo:         repo,
 		l:            l,
+		cfg:          cfg,
 		hasher:       hasher,
 		tokenManager: manager,
+		mailer:       mailer,
 	}
 }
 
-func (as *AuthorizationServer) CreateUser(ctx context.Context,
+func (as *AuthorizationServer) SignUp(ctx context.Context,
 	in *pb.UserSingle) (*pb.IdRequest, error) {
+
+	//validate data
 	if err := as.checkUserData(in); err != nil {
 		return &pb.IdRequest{}, err
 	}
 
+	// hash password
 	hashed, err := as.hasher.Hash(in.Value.Password)
 	if err != nil {
 		return &pb.IdRequest{}, status.Error(codes.Internal, InternalErr)
@@ -54,6 +67,20 @@ func (as *AuthorizationServer) CreateUser(ctx context.Context,
 		Email:    in.Value.Email,
 		Password: hashed,
 	}
+
+	// generate verification token
+	generatedBytes := make([]byte, 32)
+	_, err = rand.Read(generatedBytes)
+	if err != nil {
+		as.l.Error(fmt.Errorf("api - CreateUser - rand.Read: %w", err))
+		return &pb.IdRequest{}, status.Error(codes.Internal, InternalErr)
+	}
+	verificationToken := fmt.Sprintf("%x", generatedBytes)
+	user.VerificationToken = verificationToken
+	user.VerificationTTL = time.Now().Add(time.Hour *
+		time.Duration(as.cfg.TokenManager.VerificationExpiringTime))
+
+	// store in database
 	id, err := as.repo.Store(ctx, user)
 	if err != nil {
 		if strings.Contains(err.Error(), DuplicateErrMsg) {
@@ -64,10 +91,100 @@ func (as *AuthorizationServer) CreateUser(ctx context.Context,
 		return &pb.IdRequest{}, status.Error(codes.Internal, InternalErr)
 	}
 
+	// send verification email
+	err = as.mailer.DialAndSend(user.Email, id, string(verificationToken))
+	if err != nil {
+		// if error, delete created user
+		err = as.repo.Delete(ctx, id)
+		if err != nil {
+			as.l.Error(fmt.Errorf("api - CreateUser - Delete: %w", err))
+			return &pb.IdRequest{}, status.Error(codes.Internal, InternalErr)
+		}
+		as.l.Error(fmt.Errorf("api - CreateUser - DialAndSend: %w", err))
+		return &pb.IdRequest{}, status.Error(codes.Internal, InternalErr)
+	}
+
 	idRequest := &pb.IdRequest{
 		Id: id,
 	}
 	return idRequest, nil
+}
+
+func (as *AuthorizationServer) SignIn(ctx context.Context,
+	in *pb.UserSingle) (*pb.Empty, error) {
+
+	user := entity.User{
+		Email:    in.Value.Email,
+		Password: in.Value.Password,
+	}
+
+	found, err := as.repo.GetByEmail(ctx, user.Email)
+	if err != nil {
+		as.l.Error(fmt.Errorf("api - UpdateSession - GetByEmail: %w", err))
+		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
+	}
+
+	if !found.Verified {
+		return &pb.Empty{}, status.Error(codes.PermissionDenied,
+			entity.ErrUserNotVerified.Error())
+	}
+
+	err = as.repo.UpdateSession(ctx, user)
+	if err != nil {
+		if strings.Contains(err.Error(), NoRowsAffected) {
+			return &pb.Empty{}, status.Error(codes.NotFound,
+				entity.ErrUserDoesNotExist.Error())
+		}
+		as.l.Error(fmt.Errorf("api - UpdateSession: %w", err))
+		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
+	}
+
+	return &pb.Empty{}, nil
+}
+
+func (as *AuthorizationServer) VerifyRegistration(ctx context.Context,
+	in *pb.UserSingle) (*pb.Empty, error) {
+
+	user := entity.User{
+		Id:                in.Value.Id,
+		VerificationToken: in.Value.VerificationToken,
+	}
+
+	found, err := as.repo.GetById(ctx, user.Id)
+	if err != nil {
+		as.l.Error(fmt.Errorf("api - VerifyRegistration - GetById: %w", err))
+		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
+	}
+
+	if found.VerificationToken != user.VerificationToken {
+		return &pb.Empty{}, status.Error(codes.InvalidArgument,
+			entity.ErrTokenNotValid.Error())
+	}
+
+	expired, err := as.tokenManager.CheckTTLExpired(found.VerificationTTL)
+	if err != nil {
+		as.l.Error(fmt.Errorf("api - VerifyRegistration - CheckTTLExpired: %w", err))
+		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
+	}
+
+	if expired {
+		return &pb.Empty{}, status.Error(codes.DeadlineExceeded,
+			entity.ErrTokenTTLExpired.Error())
+	}
+
+	user.Verified = true
+
+	err = as.repo.UpdateVerification(ctx, user)
+	if err != nil {
+		if strings.Contains(err.Error(), NoRowsAffected) {
+			return &pb.Empty{}, status.Error(codes.NotFound,
+				entity.ErrUserDoesNotExist.Error())
+		}
+		as.l.Error(fmt.Errorf("api - UpdateVerification: %w", err))
+		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
+	}
+
+	return &pb.Empty{}, nil
 }
 
 func (as *AuthorizationServer) GetByPhone(ctx context.Context,
@@ -89,16 +206,16 @@ func (as *AuthorizationServer) GetByPhone(ctx context.Context,
 
 	user := &pb.UserSingle{
 		Value: &pb.User{
-			Id:           found.Id,
-			Name:         found.Name,
-			Phone:        found.Phone,
-			Email:        found.Email,
-			Password:     found.Password,
-			Role:         found.Role,
-			Verified:     found.Verified,
-			SmsCode:      found.SmsCode,
-			SessionToken: found.SessionToken,
-			SessionTtl:   timestamppb.New(found.SessionTTL),
+			Id:                found.Id,
+			Name:              found.Name,
+			Phone:             found.Phone,
+			Email:             found.Email,
+			Password:          found.Password,
+			Role:              found.Role,
+			Verified:          found.Verified,
+			VerificationToken: found.VerificationToken,
+			SessionToken:      found.SessionToken,
+			SessionTtl:        timestamppb.New(found.SessionTTL),
 		},
 	}
 
@@ -120,16 +237,16 @@ func (as *AuthorizationServer) GetById(ctx context.Context,
 
 	user := &pb.UserSingle{
 		Value: &pb.User{
-			Id:           found.Id,
-			Name:         found.Name,
-			Phone:        found.Phone,
-			Email:        found.Email,
-			Password:     found.Password,
-			Role:         found.Role,
-			Verified:     found.Verified,
-			SmsCode:      found.SmsCode,
-			SessionToken: found.SessionToken,
-			SessionTtl:   timestamppb.New(found.SessionTTL),
+			Id:                found.Id,
+			Name:              found.Name,
+			Phone:             found.Phone,
+			Email:             found.Email,
+			Password:          found.Password,
+			Role:              found.Role,
+			Verified:          found.Verified,
+			VerificationToken: found.VerificationToken,
+			SessionToken:      found.SessionToken,
+			SessionTtl:        timestamppb.New(found.SessionTTL),
 		},
 	}
 
@@ -151,64 +268,20 @@ func (as *AuthorizationServer) GetByToken(ctx context.Context,
 
 	user := &pb.UserSingle{
 		Value: &pb.User{
-			Id:           found.Id,
-			Name:         found.Name,
-			Phone:        found.Phone,
-			Email:        found.Email,
-			Password:     found.Password,
-			Role:         found.Role,
-			Verified:     found.Verified,
-			SmsCode:      found.SmsCode,
-			SessionToken: found.SessionToken,
-			SessionTtl:   timestamppb.New(found.SessionTTL),
+			Id:                found.Id,
+			Name:              found.Name,
+			Phone:             found.Phone,
+			Email:             found.Email,
+			Password:          found.Password,
+			Role:              found.Role,
+			Verified:          found.Verified,
+			VerificationToken: found.VerificationToken,
+			SessionToken:      found.SessionToken,
+			SessionTtl:        timestamppb.New(found.SessionTTL),
 		},
 	}
 
 	return user, nil
-}
-
-func (as *AuthorizationServer) UpdateSession(ctx context.Context,
-	in *pb.UserSingle) (*pb.Empty, error) {
-
-	user := entity.User{
-		Id:           in.Value.Id,
-		SessionToken: in.Value.SessionToken,
-		SessionTTL:   in.Value.SessionTtl.AsTime(),
-	}
-
-	err := as.repo.UpdateSession(ctx, user)
-	if err != nil {
-		if strings.Contains(err.Error(), NoRowsAffected) {
-			return &pb.Empty{}, status.Error(codes.NotFound,
-				entity.ErrUserDoesNotExist.Error())
-		}
-		as.l.Error(fmt.Errorf("api - UpdateSession: %w", err))
-		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
-	}
-
-	return &pb.Empty{}, nil
-}
-
-func (as *AuthorizationServer) UpdateVerification(ctx context.Context,
-	in *pb.UserSingle) (*pb.Empty, error) {
-
-	user := entity.User{
-		Id:       in.Value.Id,
-		SmsCode:  in.Value.SmsCode,
-		Verified: in.Value.Verified,
-	}
-
-	err := as.repo.UpdateVerification(ctx, user)
-	if err != nil {
-		if strings.Contains(err.Error(), NoRowsAffected) {
-			return &pb.Empty{}, status.Error(codes.NotFound,
-				entity.ErrUserDoesNotExist.Error())
-		}
-		as.l.Error(fmt.Errorf("api - UpdateVerification: %w", err))
-		return &pb.Empty{}, status.Error(codes.Internal, InternalErr)
-	}
-
-	return &pb.Empty{}, nil
 }
 
 func (as *AuthorizationServer) checkUserData(in *pb.UserSingle) error {

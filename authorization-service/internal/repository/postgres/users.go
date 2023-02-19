@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	Client     = "client"
-	notVerfied = false
+	Client = "client"
 )
 
 type UsersRepo struct {
@@ -62,9 +61,9 @@ func (ur *UsersRepo) Store(ctx context.Context, user entity.User) (int32, error)
 	}
 
 	res, err = tx.ExecContext(ctx, `
-		INSERT INTO verifications (user_id)
-			VALUES ($1)
-	`, int32(id))
+		INSERT INTO verifications (user_id, verification_token, verification_ttl, verified)
+			VALUES ($1, $2, $3, $4)
+	`, int32(id), user.VerificationToken, user.VerificationTTL, false)
 	if err != nil {
 		return 0, fmt.Errorf("UsersRepo - Store - ExecContext #3: %w", err)
 	}
@@ -82,12 +81,30 @@ func (ur *UsersRepo) Store(ctx context.Context, user entity.User) (int32, error)
 	return int32(id), nil
 }
 
+func (ur *UsersRepo) Delete(ctx context.Context, userId int32) error {
+	res, err := ur.DB.ExecContext(ctx, `
+		DELETE FROM users
+		WHERE id = $1
+	`, userId)
+
+	if err != nil {
+		return fmt.Errorf("UsersRepo - Delete - ExecContext: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if rows != 1 || err != nil {
+		return fmt.Errorf("UsersRepo - Delete - RowsAffected: %w", err)
+	}
+
+	return nil
+}
+
 func (ur *UsersRepo) GetByPhone(ctx context.Context, phone string) (entity.User, error) {
 	user := entity.User{}
 
 	row := ur.DB.QueryRowContext(ctx, `
 		SELECT id, name, phone, email, password, role, session_token, session_ttl,
-		sms_code, verified
+		verification_token, verification_ttl, verified
 		FROM users
 		INNER JOIN sessions ON users.id = sessions.user_id
 		INNER JOIN verifications ON users.id = verifications.user_id
@@ -97,10 +114,12 @@ func (ur *UsersRepo) GetByPhone(ctx context.Context, phone string) (entity.User,
 	var email sql.NullString
 	var sessionToken sql.NullString
 	var sessionTTL sql.NullTime
-	var smsCode sql.NullString
+	var VerificationToken sql.NullString
+	var VerificationTTL sql.NullTime
 
 	err := row.Scan(&user.Id, &user.Name, &user.Phone, &email, &user.Password,
-		&user.Role, &sessionToken, &sessionTTL, &smsCode, &user.Verified)
+		&user.Role, &sessionToken, &sessionTTL, &VerificationToken,
+		&VerificationTTL, &user.Verified)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, entity.ErrUserDoesNotExist
@@ -111,7 +130,43 @@ func (ur *UsersRepo) GetByPhone(ctx context.Context, phone string) (entity.User,
 	user.Email = email.String
 	user.SessionToken = sessionToken.String
 	user.SessionTTL = sessionTTL.Time
-	user.SmsCode = smsCode.String
+	user.VerificationToken = VerificationToken.String
+	user.VerificationTTL = VerificationTTL.Time
+
+	return user, nil
+}
+
+func (ur *UsersRepo) GetByEmail(ctx context.Context, email string) (entity.User, error) {
+	user := entity.User{}
+
+	row := ur.DB.QueryRowContext(ctx, `
+		SELECT id, name, phone, email, password, role, session_token, session_ttl,
+		verification_token, verification_ttl, verified
+		FROM users
+		INNER JOIN sessions ON users.id = sessions.user_id
+		INNER JOIN verifications ON users.id = verifications.user_id
+		WHERE email = $1
+	`, email)
+
+	var sessionToken sql.NullString
+	var sessionTTL sql.NullTime
+	var VerificationToken sql.NullString
+	var VerificationTTL sql.NullTime
+
+	err := row.Scan(&user.Id, &user.Name, &user.Phone, &email, &user.Password,
+		&user.Role, &sessionToken, &sessionTTL, &VerificationToken,
+		&VerificationTTL, &user.Verified)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return user, entity.ErrUserDoesNotExist
+	} else if err != nil {
+		return user, fmt.Errorf("UsersRepo - GetByPhone - Scan: %w", err)
+	}
+
+	user.SessionToken = sessionToken.String
+	user.SessionTTL = sessionTTL.Time
+	user.VerificationToken = VerificationToken.String
+	user.VerificationTTL = VerificationTTL.Time
 
 	return user, nil
 }
@@ -121,7 +176,7 @@ func (ur *UsersRepo) GetById(ctx context.Context, id int32) (entity.User, error)
 
 	row := ur.DB.QueryRowContext(ctx, `
 		SELECT id, name, phone, email, password, role, session_token, session_ttl,
-		sms_code, verified
+		verification_token, verification_ttl, verified
 		FROM users
 		INNER JOIN sessions ON users.id = sessions.user_id
 		INNER JOIN verifications ON users.id = verifications.user_id
@@ -131,10 +186,12 @@ func (ur *UsersRepo) GetById(ctx context.Context, id int32) (entity.User, error)
 	var email sql.NullString
 	var sessionToken sql.NullString
 	var sessionTTL sql.NullTime
-	var smsCode sql.NullString
+	var VerificationToken sql.NullString
+	var VerificationTTL sql.NullTime
 
 	err := row.Scan(&user.Id, &user.Name, &user.Phone, &email, &user.Password,
-		&user.Role, &sessionToken, &sessionTTL, &smsCode, &user.Verified)
+		&user.Role, &sessionToken, &sessionTTL, &VerificationToken,
+		&VerificationTTL, &user.Verified)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, entity.ErrUserDoesNotExist
@@ -145,7 +202,8 @@ func (ur *UsersRepo) GetById(ctx context.Context, id int32) (entity.User, error)
 	user.Email = email.String
 	user.SessionToken = sessionToken.String
 	user.SessionTTL = sessionTTL.Time
-	user.SmsCode = smsCode.String
+	user.VerificationToken = VerificationToken.String
+	user.VerificationTTL = VerificationTTL.Time
 
 	return user, nil
 }
@@ -155,7 +213,7 @@ func (ur *UsersRepo) GetByToken(ctx context.Context, token string) (entity.User,
 
 	row := ur.DB.QueryRowContext(ctx, `
 		SELECT id, name, phone, email, password, role, session_token, session_ttl,
-		sms_code, verified
+		verification_token, verification_ttl, verified
 		FROM users
 		INNER JOIN sessions ON users.id = sessions.user_id
 		INNER JOIN verifications ON users.id = verifications.user_id
@@ -165,10 +223,12 @@ func (ur *UsersRepo) GetByToken(ctx context.Context, token string) (entity.User,
 	var email sql.NullString
 	var sessionToken sql.NullString
 	var sessionTTL sql.NullTime
-	var smsCode sql.NullString
+	var VerificationToken sql.NullString
+	var VerificationTTL sql.NullTime
 
 	err := row.Scan(&user.Id, &user.Name, &user.Phone, &email, &user.Password,
-		&user.Role, &sessionToken, &sessionTTL, &smsCode, &user.Verified)
+		&user.Role, &sessionToken, &sessionTTL, &VerificationToken,
+		&VerificationTTL, &user.Verified)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, entity.ErrUserDoesNotExist
@@ -179,7 +239,8 @@ func (ur *UsersRepo) GetByToken(ctx context.Context, token string) (entity.User,
 	user.Email = email.String
 	user.SessionToken = sessionToken.String
 	user.SessionTTL = sessionTTL.Time
-	user.SmsCode = smsCode.String
+	user.VerificationToken = VerificationToken.String
+	user.VerificationTTL = VerificationTTL.Time
 
 	return user, nil
 }
@@ -206,9 +267,9 @@ func (ur *UsersRepo) UpdateSession(ctx context.Context, user entity.User) error 
 func (ur *UsersRepo) UpdateVerification(ctx context.Context, user entity.User) error {
 	res, err := ur.DB.ExecContext(ctx, `
 		UPDATE verifications
-		SET sms_code = $1, verified = $2
-		WHERE user_id = $3
-	`, user.SmsCode, user.Verified, user.Id)
+		SET verified = $1
+		WHERE user_id = $2
+	`, true, user.Id)
 
 	if err != nil {
 		return fmt.Errorf("UsersRepo - UpdateVerification - ExecContext: %w", err)

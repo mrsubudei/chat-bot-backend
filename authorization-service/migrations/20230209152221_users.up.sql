@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE TABLE IF NOT EXISTS verifications (
     user_id INT UNIQUE,
-    sms_code TEXT,
+    verification_token TEXT,
+    verification_ttl TIMESTAMP,
     verified BOOLEAN NOT NULL,
     CONSTRAINT fk_users
         FOREIGN KEY (user_id)

@@ -3,7 +3,6 @@ package api_test
 import (
 	"context"
 	"errors"
-	"log"
 	"testing"
 	"time"
 
@@ -38,7 +37,7 @@ func mockEventApi(t *testing.T) (*api.AppointmentServer, *mock_repository.MockEv
 
 	cfg, err := config.NewConfig("../../config.yml")
 	if err != nil {
-		log.Fatalf("Config error: %s", err)
+		t.Fatalf("Config error: %s", err)
 	}
 	l := logger.New(cfg.Logger.Level)
 	eventsService := api.NewAppointmentServer(repo, l)
